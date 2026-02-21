@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+  # === PostgreSQL + PostGIS ===
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: fire_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fire_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fire_secret_password}
+      POSTGRES_DB: ${POSTGRES_DB:-fire_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fire_user} -d ${POSTGRES_DB:-fire_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # === FastAPI Backend ===
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fire_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fire_user}:${POSTGRES_PASSWORD:-fire_secret_password}@postgres:5432/${POSTGRES_DB:-fire_db}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # === Frontend (placeholder) ===
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fire_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  # === MCP Server (placeholder) ===
+  mcp-server:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    container_name: fire_mcp
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
