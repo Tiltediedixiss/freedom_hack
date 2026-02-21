@@ -1,0 +1,1065 @@
+[
+  {
+    "row": 1,
+    "guid": "fe44694a-10ed-f011-8406-0022481ba5f0",
+    "age": 27,
+    "segment": "VIP",
+    "text": "Здравствуйте.\nПокупка акций в приложении Freedom Broker\nВопрос: можно ли в приложении совершать покупки акций дробно (когда\nинвестируется небольшие средства 15-20$)?\n\nЕсли да, то подскажите последовательность действий.",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "консультация",
+    "address": {
+      "country": "Казахстан",
+      "region": "Алматинская",
+      "city": "Тургень",
+      "street": "ул. Садовая",
+      "house": "7",
+      "lat": 43.403908,
+      "lon": 77.006573,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "консультация",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент спрашивает, можно ли покупать акции дробно в приложении Freedom Broker, инвестируя небольшие суммы (15-20$). Рекомендуется предоставить информацию о возможности дробной покупки акций и последовательности действий.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 4906
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 2,
+    "guid": "f79259e3-9cf2-f011-8406-0022481ba51f",
+    "age": 34,
+    "segment": "Mass",
+    "text": "Мои счета заблокированы. Срочно разблокируйте! Вы не имеете права блокировать мои счета без причины!!!",
+    "is_spam": false,
+    "spam_probability": 0.1285,
+    "status": "enriched",
+    "ticket_type": "жалоба",
+    "address": {
+      "country": "Казахстан",
+      "region": "Акмолинская",
+      "city": "Красный Яр",
+      "street": "ул. Северная",
+      "house": "9",
+      "lat": 53.297595,
+      "lon": 69.327644,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "жалоба",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент жалуется на блокировку счетов и требует немедленной разблокировки. Рекомендуется выяснить причину блокировки и оперативно решить проблему.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 4285
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.95
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 3,
+    "guid": "da158b87-f1e9-f011-8406-0022481ba5f0",
+    "age": 32,
+    "segment": "VIP",
+    "text": "Уточните плз за что именно и когда удерживается комиссия 50 долларов\nза Обслуживание бездействующих счетов?",
+    "is_spam": false,
+    "spam_probability": 0.0008,
+    "status": "enriched",
+    "ticket_type": "консультация",
+    "address": {
+      "country": "Казахстан",
+      "region": "Семипалатинская обл. / ВКО",
+      "city": "Усть-Каменогорск",
+      "street": null,
+      "house": "30",
+      "lat": 50.015892,
+      "lon": 82.525573,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "консультация",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент просит уточнить за что и когда удерживается комиссия в размере 50 долларов за обслуживание бездействующих счетов. Рекомендуется предоставить клиенту подробную информацию о комиссии.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1992
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 4,
+    "guid": "d8dcd8f8-b4eb-f011-8406-0022481ba388",
+    "age": 54,
+    "segment": "Mass",
+    "text": "Здравствуйте Вы даете доступ к ETF KSA или к прямой торговле на Tadawul? Это рынок Саудовской Аравии который упрощает доступ с 1 февраля этого года",
+    "is_spam": false,
+    "spam_probability": 0.0865,
+    "status": "enriched",
+    "ticket_type": "консультация",
+    "address": {
+      "country": "Казахстан",
+      "region": "Акмолинская",
+      "city": "Кокшетау",
+      "street": "ул. Абая",
+      "house": "91",
+      "lat": 52.517432,
+      "lon": 68.75394,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "консультация",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент интересуется, предоставляет ли компания доступ к ETF KSA или прямой торговле на Tadawul (рынок Саудовской Аравии). Рекомендуется предоставить информацию о доступных вариантах торговли на указанном рынке.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 4348
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.95
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 5,
+    "guid": "cc75c0da-e907-f111-8407-0022481bac13",
+    "age": 51,
+    "segment": "Mass",
+    "text": "Выгодное предложение на сварочные многофункциональные агрегаты ET-Welding\nПоможем подобрать оборудование для Ваших задач. В наличии на складе.\n⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n\nhttps://gbr01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fext.enkod.ru%2Fv11%2FbotClick%2FcNJdh5hMmViOjMyMzowOmI2MmE6MDowOjcxZmI2YWFiLTg5ODYtNDhjMy04MmE5LTU5OTNmY2M4YmNjNg%3D%3D%3Fc%3DcnV0ZWN0b3I%253D&data=05%7C02%7C7555%40ffin.kz%7C98f309664bb94217240808de6a0d64bf%7C7470e6aa7ba3459bb601e987fc0a153a%7C0%7C0%7C639064804318689368%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C60000%7C%7C%7C&sdata=e86c%2Brdg3S0x1C8S9GlYomE5W32lWggyQglvqNKXPZM%3D&reserved=0",
+    "is_spam": true,
+    "spam_probability": 1.0,
+    "status": "enriched",
+    "ticket_type": "спам",
+    "address": {
+      "country": "Казахстан",
+      "region": "Костанайская",
+      "city": "Костанай",
+      "street": "ул. Баймагамбетова",
+      "house": "14",
+      "lat": null,
+      "lon": null,
+      "geo_status": "unknown"
+    },
+    "ai": null,
+    "sentiment": null,
+    "pii_count": 0
+  },
+  {
+    "row": 6,
+    "guid": "c577d3fd-dafc-f011-8406-0022481ba139",
+    "age": 48,
+    "segment": "Mass",
+    "text": "добрый день.\n\nя не могу войти в приложение.\n\nя хотела изменить номер телефона со старого на новый, так как сменила.\n\nуказывает ошибку, что мой старый номер +7ХХХХХХХХХх7 не найден.\n\nво вложении скрин ошибки.\n\nсейчас мой новый номер +77ХХХХХХХ46.\n\n\nпрошу помочь.\n\nс уважением, Динара.",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "неработоспособность",
+    "address": {
+      "country": "Казахстан",
+      "region": "Акмолинская",
+      "city": "Шортанды",
+      "street": "ул. Целинная",
+      "house": "4",
+      "lat": 51.706441,
+      "lon": 70.981717,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "неработоспособность",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент не может войти в приложение, так как хочет сменить номер телефона, но старый номер не найден. Рекомендуется помочь клиенту сменить номер телефона и восстановить доступ к приложению.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 2024
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.8
+    },
+    "pii_count": 3
+  },
+  {
+    "row": 7,
+    "guid": "c27f8c40-1ff5-f011-8406-0022481ba15f",
+    "age": 46,
+    "segment": "Mass",
+    "text": "Клиент хотел войти на свой счет, \nно смска на восстаовление пароля не приходит.\nПосмотрите, пожалуйста, в чем дело.\n\n\nС уважением, \n    Алексей",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "неработоспособность",
+    "address": {
+      "country": "Казахстан",
+      "region": "Карагандинская",
+      "city": "Осакаровка",
+      "street": "ул. Центральная",
+      "house": "10",
+      "lat": 50.612442,
+      "lon": 72.893509,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "неработоспособность",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент не может войти в свой аккаунт, так как не получает SMS для восстановления пароля. Необходимо проверить причину, по которой SMS не доставляется.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 4526
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 1
+  },
+  {
+    "row": 8,
+    "guid": "be5a4633-fe0a-f111-8407-0022481ba5f0",
+    "age": 27,
+    "segment": "Mass",
+    "text": "Здравствуйте! Хочу уточнить, имеет ли Money Advisor право оказывать брокерские\nуслуги от имени Фридом Финанс? И имеют ли они официальный офис в Казахстане?\nБуду благодарна за официальный ответ.\nИли я стала жертвой мошенников\nСпасибо!\nПрошу связаться со мной\n87ХХХХХХХХ Динара",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "мошенничество",
+    "address": {
+      "country": "Казахстан",
+      "region": "Северо-Казахстанская обл.",
+      "city": "Павлодар",
+      "street": null,
+      "house": null,
+      "lat": 54.457682,
+      "lon": 69.724159,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "мошенничество",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент хочет узнать, имеет ли Money Advisor право оказывать брокерские услуги от имени Freedom Finance и есть ли у них официальный офис в Казахстане, так как подозревает мошенничество. Рекомендуется проверить информацию о Money Advisor и предоставить официальный ответ клиенту.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1918
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.8
+    },
+    "pii_count": 3
+  },
+  {
+    "row": 9,
+    "guid": "bb54127b-4ef1-f011-8406-0022481ba654",
+    "age": 52,
+    "segment": "Mass",
+    "text": "Тюльпаны - срезка. Выращено в Питомнике Вашутино. Специальные цены до 20 января! Отгрузка Химки. \n\nТЮЛЬПАНЫ - СРЕЗКА ИЗ ПИТОМНИКА ВАШУТИНО!\n\n\nСПЕЦИАЛЬНЫЕ ЦЕНЫ ПРИ ЗАКАЗЕ ДО 20 ЯНВАРЯ!\n\n\nМинимальный заказ\n\n * от 300 шт одного сорта\n\nУпаковка\n\n * Цветы упакованы в бумажные банчи по 50 шт\n\nДополнительные услуги\n\n * Формирование букетов, включая персональный дизайн упаковки\n\nТранспортировка\n\n * Возможна поставка в упаковочных коробках вертикальных и горизонтальных.\n\n * Предлагаем дополнительное утепление для авиа и жд -перевозок.\n\nОтгрузка\n\n * Отгрузка заказа осуществляется единовременно в полном объеме. \n\n * Московская обл, Химки.\n\nРозничная продажа\n\n * от 1 шт - в наших Садовых центрах с 10 февраля.\n\nперейти на сайт\n[https://gbr01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fbitrix.fittonia.ru%2Fpub%2Fmail%2Fclick.php%3Ftag%3Dsender.eyJSRUNJUElFTlRfSUQiOiI3ODIzODE2In0%253D%26url%3Dhttps%253A%252F%252Ffittonia.ru%252Fcategory%252Ftyulpany%252F%253Futm_source%253Drass%2526amp%253Butm_medium%253Dcpc%2526amp%253Butm_campaign%253Dtulp_srez%2526bx_sender_conversion_id%253D7823816%26sign%3D75c722f5a60a3eda3",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "спам",
+    "address": {
+      "country": "Казахстан",
+      "region": "Акмолинская обл.",
+      "city": "Косшы / Астана",
+      "street": "ул. Республики",
+      "house": "25",
+      "lat": 50.965375,
+      "lon": 71.351796,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "спам",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Рекламное предложение о продаже тюльпанов от питомника Вашутино. Рекомендовано игнорировать.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1951
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 2
+  },
+  {
+    "row": 10,
+    "guid": "ba61a4e7-f0f1-f011-8406-0022481ba51f",
+    "age": 23,
+    "segment": "VIP",
+    "text": "Смена номера\nНапишите пожалуйста на what’s app или позвоните +7ХХХХХХХ33 Отправлено с iPhone",
+    "is_spam": false,
+    "spam_probability": 0.0015,
+    "status": "enriched",
+    "ticket_type": "смена_данных",
+    "address": {
+      "country": "Казахстан",
+      "region": "г. Алматы",
+      "city": "Алматы",
+      "street": "ул. Жандосова",
+      "house": "162",
+      "lat": 43.198712,
+      "lon": 76.842707,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "смена_данных",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент просит сменить номер телефона. Необходимо связаться с клиентом для уточнения деталей и выполнения запроса.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 1750
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 1
+  },
+  {
+    "row": 11,
+    "guid": "b44f142b-78c5-4573-9bde-fe0780b2e028",
+    "age": 38,
+    "segment": "Mass",
+    "text": null,
+    "is_spam": true,
+    "spam_probability": 1.0,
+    "status": "enriched",
+    "ticket_type": "спам",
+    "address": {
+      "country": "Казахстан",
+      "region": "г. Шымкент",
+      "city": "Шымкент",
+      "street": "пр. Республики",
+      "house": "25",
+      "lat": null,
+      "lon": null,
+      "geo_status": "unknown"
+    },
+    "ai": null,
+    "sentiment": null,
+    "pii_count": 0
+  },
+  {
+    "row": 12,
+    "guid": "b135ab3e-b8ef-f011-8406-0022481ba303",
+    "age": 48,
+    "segment": "Mass",
+    "text": "Добрый вечер. \nПроблема со входом на брокерский счет,просрочено уд.личности.Изменить данные\nсмосьоятельно не получается,прошу вас изменить данные",
+    "is_spam": false,
+    "spam_probability": 0.0001,
+    "status": "enriched",
+    "ticket_type": "смена_данных",
+    "address": {
+      "country": "Казахстан",
+      "region": "Туркестанская",
+      "city": "Ленгер",
+      "street": "ул. Толе би",
+      "house": "22",
+      "lat": 42.30751,
+      "lon": 69.610406,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "смена_данных",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент не может войти в брокерский счет из-за просроченного удостоверения личности и просит изменить данные. Необходимо обновить данные клиента.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 1754
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 13,
+    "guid": "a9f07a3d-a905-f111-8407-0022481baec1",
+    "age": 22,
+    "segment": "Mass",
+    "text": "FW: Смена номера телефона",
+    "is_spam": false,
+    "spam_probability": 0.0076,
+    "status": "enriched",
+    "ticket_type": "смена_данных",
+    "address": {
+      "country": null,
+      "region": "Mangystau obl.",
+      "city": "Aktau",
+      "street": "мкр 14",
+      "house": "25",
+      "lat": 43.652447,
+      "lon": 51.143161,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "смена_данных",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент просит сменить номер телефона. Необходимо обработать запрос на смену данных.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 1717
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 14,
+    "guid": "a154a8e6-439d-4a7b-86e8-56ef94b18ee2",
+    "age": 26,
+    "segment": "VIP",
+    "text": "Добрый день! Часто замечаю у вас неправильные показатели динамики бумаг. Когда исправите?",
+    "is_spam": false,
+    "spam_probability": 0.078,
+    "status": "enriched",
+    "ticket_type": "жалоба",
+    "address": {
+      "country": "Казахстан",
+      "region": "Восточно-Казахстанская",
+      "city": "Усть-Каменогорск",
+      "street": "ул. Казахстан",
+      "house": "30",
+      "lat": 49.961554,
+      "lon": 82.596223,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "жалоба",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент жалуется на неправильные показатели динамики бумаг. Рекомендуется проверить данные и исправить ошибки.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 3113
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.8
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 15,
+    "guid": "9c0a1f1e-6702-f111-8407-0022481ba15f",
+    "age": 50,
+    "segment": "Priority",
+    "text": "Добрый день! Мне нужен номер налогоплательщика Вашей кампании. Для уведомления\nсвоего налогового органа об открытии иностранного счета. \n\nС Уважением Воробьева Ю.",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "консультация",
+    "address": {
+      "country": "Казахстан",
+      "region": "Туркестанская",
+      "city": "Кентау",
+      "street": "ул. Ауэзова",
+      "house": "29",
+      "lat": 43.517191,
+      "lon": 68.515609,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "консультация",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент запрашивает номер налогоплательщика компании для уведомления налогового органа об открытии иностранного счета. Необходимо предоставить клиенту запрошенную информацию.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1782
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.95
+    },
+    "pii_count": 1
+  },
+  {
+    "row": 16,
+    "guid": "8de250d3-eef5-f011-8406-0022481bac13",
+    "age": 42,
+    "segment": "Mass",
+    "text": "Здравствуйте. Прошу проверить ваши ли это сертификат и люди, не мошенники ли?",
+    "is_spam": false,
+    "spam_probability": 0.0152,
+    "status": "enriched",
+    "ticket_type": "мошенничество",
+    "address": {
+      "country": "Казахстан",
+      "region": "Павлодарская обл.",
+      "city": "Аксу",
+      "street": "ул. Центральная",
+      "house": "6",
+      "lat": 52.136846,
+      "lon": 76.856921,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "мошенничество",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент просит проверить подлинность сертификата и людей, чтобы убедиться, что это не мошенники. Рекомендуется проверить информацию и предоставить ответ клиенту.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1790
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 17,
+    "guid": "85c96430-f0e9-f011-8406-0022481ba51f",
+    "age": 26,
+    "segment": "VIP",
+    "text": "Добрый день. Не могу войти в свой аккаунт Пароль не принимает я\nпопытался восстановить пароль через имейл код в e-mail не приходит, также я\nпробовал сделать или через СМС, СМС тоже не приходит помогите разобраться.",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "неработоспособность",
+    "address": {
+      "country": "Казахстан",
+      "region": "Алматинская",
+      "city": "Кыргауылды",
+      "street": "ул. Молодежная",
+      "house": "15",
+      "lat": 43.404213,
+      "lon": 77.005735,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "неработоспособность",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент не может войти в аккаунт, так как не получает код для восстановления пароля ни по email, ни по SMS. Необходимо проверить настройки отправки кодов и помочь клиенту восстановить доступ.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 2130
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.85
+    },
+    "pii_count": 1
+  },
+  {
+    "row": 18,
+    "guid": "80c6ed25-45f0-f011-8406-0022481ba5f0",
+    "age": 53,
+    "segment": "Mass",
+    "text": "Добрый день!\nНе удаётся зарегистрироваться в приложении Freedom broker. Нахожусь на первом шаге: ввожу почту и пароль - приложение отвечает ошибкой (см. скрин-шот).\nЯ нахожусь в России, захожу в приложение при помощи VPN.\nПодборное описание событий, приведших к обращению: Нахожусь на первом шаге: ввожу почту и пароль - приложение отвечает ошибкой (см. скрин-шот).\nЯ нахожусь в России, захожу в приложение при помощи VPN",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "неработоспособность",
+    "address": {
+      "country": "Казахстан",
+      "region": "Карагандинская",
+      "city": "Сарань",
+      "street": "ул. Победы",
+      "house": "7",
+      "lat": 49.791769,
+      "lon": 72.812208,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "неработоспособность",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент не может зарегистрироваться в приложении Freedom broker, возникает ошибка при вводе почты и пароля. Рекомендовать проверить подключение к интернету и корректность введенных данных, а также обратиться в техническую поддержку.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 3447
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 19,
+    "guid": "6f860ff9-cc01-f111-8407-0022481ba3d1",
+    "age": 42,
+    "segment": "VIP",
+    "text": "Я на вас в суд подам! Верните мои деньги\nДва раза списали комиссию по $25 за 1 транзакцию.",
+    "is_spam": false,
+    "spam_probability": 0.0006,
+    "status": "enriched",
+    "ticket_type": "претензия",
+    "address": {
+      "country": "Казахстан",
+      "region": "Восточно-Казахстанская",
+      "city": "Кокпекты",
+      "street": "ул. Центральная",
+      "house": "4",
+      "lat": 50.033584,
+      "lon": 82.543577,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "претензия",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент угрожает подать в суд и требует вернуть деньги. Дважды списали комиссию по $25 за транзакцию. Необходимо разобраться с двойным списанием комиссии и ответить клиенту.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1909
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.95
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 20,
+    "guid": "6f129f43-ecfa-f011-8406-0022481bad7e",
+    "age": 45,
+    "segment": "Mass",
+    "text": "Hello,\n\nI am trying to complete my account verification, but my proof of address keeps\ngetting rejected only because it is in my local language (Azerbaijani).\n\nMy address is clearly written and official, but your system requires documents\nin English or Turkish. Unfortunately, in my country most residence certificates\nare issued only in Azerbaijani.\n\nCould you please let me know:\n• Is there any alternative document you can accept?\n• Or can you manually review my address document?\n\nI am willing to cooperate and provide any additional information if needed.\n\nThank you for your support.",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "консультация",
+    "address": {
+      "country": "Казахстан",
+      "region": "г. Алматы",
+      "city": "Алматы",
+      "street": "ул. Толе би",
+      "house": "101",
+      "lat": 43.253963,
+      "lon": 76.925164,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "консультация",
+      "language": "ENG",
+      "language_actual": "english",
+      "summary": "Клиент не может пройти верификацию адреса, так как документ на азербайджанском языке. Просит принять альтернативный документ или проверить текущий вручную. Рекомендуется рассмотреть возможность ручной проверки или предложить альтернативные варианты документов.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 2191
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.8
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 21,
+    "guid": "68086831-220b-f111-8407-0022481baa2c",
+    "age": 31,
+    "segment": "Mass",
+    "text": "RE: Саламатсыздарма, қандай облигация теңгеге алуға болады? Рахмет!",
+    "is_spam": false,
+    "spam_probability": 0.0701,
+    "status": "enriched",
+    "ticket_type": "консультация",
+    "address": {
+      "country": "Казахстан",
+      "region": "Атырауская",
+      "city": "Индербор",
+      "street": "ул. Центральная",
+      "house": "4",
+      "lat": 47.107094,
+      "lon": 51.927143,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "консультация",
+      "language": "KZ",
+      "language_actual": "kazakh",
+      "summary": "Клиент спрашивает, какие облигации можно приобрести за тенге. Рекомендовать менеджеру предоставить информацию об облигациях, доступных для покупки в тенге.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 3060
+    },
+    "sentiment": {
+      "label": "позитивный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 22,
+    "guid": "6396447c-daf1-f011-8406-0022481ba303",
+    "age": 44,
+    "segment": "Mass",
+    "text": "Hello, im blocked in your app. Reason to much try to add the documents of\naddress registration i think. Please un block me\n\nС уважением.  Денис",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "неработоспособность",
+    "address": {
+      "country": "Казахстан",
+      "region": "Туркестанская",
+      "city": "Бадам",
+      "street": "ул. Восточная",
+      "house": "2",
+      "lat": 52.960366,
+      "lon": 63.150954,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "неработоспособность",
+      "language": "ENG",
+      "language_actual": "english",
+      "summary": "Клиент сообщает о блокировке в приложении, предположительно из-за многократных попыток загрузки документов. Необходимо разблокировать аккаунт клиента.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 3187
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.8
+    },
+    "pii_count": 1
+  },
+  {
+    "row": 23,
+    "guid": "5d29d98c-55fb-f011-8406-0022481baa2c",
+    "age": 38,
+    "segment": "Mass",
+    "text": "FW: Менде облигация сатып алуға бұйрық орындалмау да, неге?",
+    "is_spam": false,
+    "spam_probability": 0.0288,
+    "status": "enriched",
+    "ticket_type": "жалоба",
+    "address": {
+      "country": "Казахстан",
+      "region": "Абайская",
+      "city": "Бескарагай",
+      "street": "ул. Мира",
+      "house": "4",
+      "lat": 50.892191,
+      "lon": 79.465986,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "жалоба",
+      "language": "KZ",
+      "language_actual": "kazakh",
+      "summary": "Клиент жазған облигацияларды сатып алуға берген бұйрығы орындалмаған. Менеджерге мәселені анықтап, клиентке жауап беру керек.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1863
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.8
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 24,
+    "guid": "591d3e1d-ebf8-f011-8406-0022481ba046",
+    "age": 43,
+    "segment": "Mass",
+    "text": "Hey, there. \nI am from Ukraine, and I am trying to upload the document that proves my\nregistration address. However, the document can not pass the validation. \nI assume it’s because of the language this document was issued. Nowadays we can\nnot get the registration address document anywhere except the official\napplication Dia, but this app issues the document in Ukrainian only. \nWhat can i do to pass the validation to signup on your platform?\n\n\nHuge thanks in advance, Vlad.",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "смена_данных",
+    "address": {
+      "country": "Казахстан",
+      "region": "Туркестанская",
+      "city": "Шардара",
+      "street": "ул. Жибек жолы",
+      "house": "19",
+      "lat": 41.472839,
+      "lon": 69.158237,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "смена_данных",
+      "language": "ENG",
+      "language_actual": "english",
+      "summary": "Клиент из Украины не может загрузить документ, подтверждающий адрес регистрации, из-за языка документа (украинский). Необходимо предоставить информацию о том, какие документы принимаются и как пройти верификацию.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 2476
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.8
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 25,
+    "guid": "493fd23b-ad01-f111-8407-0022481baec1",
+    "age": 45,
+    "segment": "Mass",
+    "text": "Уважаемые коллеги!\n\nМосковская биржа и АО \"ПЕРВОУРАЛЬСКБАНК\" приглашают вас 5 февраля в 15:00 на\nмероприятие\n\nПЕРВОУРАЛЬСКБАНК: ДЕНЬ ИНВЕСТОРА\n\nПЕРВОУРАЛЬСКБАНК – динамично развивающийся банк, основанный в 1990 году. Банк\nработает на территории всей России. Приоритетные направления деятельности банка\n— кредитование МСБ и лизинговых компаний, факторинг, лизинг\n\n\n\n * ТОП-10 по факторингу МСБ и оборачиваемости портфеля (по данным RAEX и\n   Ассоциации факторинговых компаний)\n * Следует принципам устойчивого развития и управления ESG-факторами, рейтинг\n   ESG-BBB\n * С 2024 году – эмитент облигаций на Московской бирже\n * Победитель Национальной банковской премии 2025 года в номинации «Лидер в\n   области лизинга медицинского и косметологического оборудования»\n * Рейтинг кредитоспособности НРА — BB(RU), АО «Эксперт РА» — RUBB\n\n\n\nРегистрация\n[https://gbr01.safelinks.protection.outlook.com/?url=http%3A%2F%2Fmoex.com%2Fru%2Fforms%2Fcampaign.aspx%3Fcid%3D3E25C7A4-3D00-F111-9153-00155D2D8115%26uid%3D%257B26E524CC-0E0E-F011-914E-00155D8101A9%257D&data=05%7C02%7C7555%40ffin.kz%7C905ac29e52fe474278bb08de63d104e6%7C7470e6aa7ba3459bb601e987fc0a153a%7C0%7C0%7C639057946873541335%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=%2FdmhuESv0lObJAh6XsfurjsSudBxDk3pgLQ5%2B06k9P0%3D&reserved=0]",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "спам",
+    "address": {
+      "country": "Казахстан",
+      "region": "Алматинская обл.",
+      "city": "Конаев (Капчагай)",
+      "street": "5 мкр",
+      "house": null,
+      "lat": 43.84632,
+      "lon": 77.052832,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "спам",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиенту пришло рекламное письмо о мероприятии ПЕРВОУРАЛЬСКБАНК. Рекомендовано заблокировать отправителя.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 4511
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.95
+    },
+    "pii_count": 1
+  },
+  {
+    "row": 26,
+    "guid": "4071842c-10df-f011-8406-0022481ba2e6",
+    "age": 49,
+    "segment": "Mass",
+    "text": "125$ не пришло на счет. Верните деньги!\n\n________\nBest Regards,\nGregory",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "претензия",
+    "address": {
+      "country": "Казахстан",
+      "region": "Алматинская",
+      "city": "Кокпек",
+      "street": "ул. Центральная",
+      "house": "14",
+      "lat": 43.193735,
+      "lon": 76.896486,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "претензия",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент жалуется, что 125$ не поступили на счет и требует вернуть деньги. Необходимо проверить транзакцию и разобраться в ситуации.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1870
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 27,
+    "guid": "3692ae0e-f5ef-f011-8406-0022481ba5f0",
+    "age": 43,
+    "segment": "Mass",
+    "text": "Sms не приходят! Решите уже мою проблему!!! Я требую повысить приоритет обращению и решить в течение часа",
+    "is_spam": false,
+    "spam_probability": 0.111,
+    "status": "enriched",
+    "ticket_type": "неработоспособность",
+    "address": {
+      "country": "Казахстан",
+      "region": "Павлодарская",
+      "city": "Аксу",
+      "street": "ул. Центральная",
+      "house": "6",
+      "lat": 52.136846,
+      "lon": 76.856921,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "неработоспособность",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент жалуется на то, что не приходят SMS-сообщения. Необходимо проверить настройки отправки SMS и решить проблему в течение часа.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 4493
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.95
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 28,
+    "guid": "2a99d51e-7dfb-f011-8406-0022481bac13",
+    "age": 48,
+    "segment": "Mass",
+    "text": "Men ruyxatdan utolmayapman sabab nima",
+    "is_spam": false,
+    "spam_probability": 0.0164,
+    "status": "enriched",
+    "ticket_type": "неработоспособность",
+    "address": {
+      "country": "Казахстан",
+      "region": "ЮКО / Шымкент обл.",
+      "city": "Туркестан",
+      "street": null,
+      "house": null,
+      "lat": 43.285962,
+      "lon": 68.309824,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "неработоспособность",
+      "language": "KZ",
+      "language_actual": "uzbek",
+      "summary": "Клиент не может зарегистрироваться. Необходимо проверить систему регистрации и помочь клиенту завершить регистрацию.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 1849
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.8
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 29,
+    "guid": "16a8690e-4aec-f011-8406-0022481bad7e",
+    "age": 24,
+    "segment": "VIP",
+    "text": "Здравствуйте! Вчера не смог произвести оплату картой привязанной к D счету. В\nбанке сказали проблем на их стороне нет и посоветовали обратиться к вам к\nброкеру . Что значит «обновить экономический портфель»?",
+    "is_spam": false,
+    "spam_probability": 0.0001,
+    "status": "enriched",
+    "ticket_type": "неработоспособность",
+    "address": {
+      "country": "Казахстан",
+      "region": "Карагандинская",
+      "city": "Караганда",
+      "street": "пр. Нуркена Абдирова",
+      "house": "25",
+      "lat": 49.805795,
+      "lon": 73.104422,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "неработоспособность",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент не смог произвести оплату картой и спрашивает, что значит «обновить экономический портфель». Рекомендовать проверить настройки карты и предоставить информацию об обновлении экономического портфеля.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 3219
+    },
+    "sentiment": {
+      "label": "нейтральный",
+      "confidence": 0.8
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 30,
+    "guid": "136d32a0-bafd-f011-8406-0022481ba51f",
+    "age": 47,
+    "segment": "Mass",
+    "text": "Ваша компания ведет себя как мошенническая структура. Перевод на сумму\n200 EUR из Sparkasse до сих пор не на моем счету. Вы повторяете свою\nпрошлогоднюю схему, когда вы «прокручивали» мои деньги до момента подачи жалобы\nв претензионный отдел.\n\nЗаявляю вам официально:\n\nВаша ложь о том, что «квитанция не та» — это дешевый предлог для незаконного\nудержания моих денег. Вы принимали этот же формат документа ранее.\n\nЯ осведомлена о сотнях аналогичных отзывов в интернете. Ваши действия носят\nмассовый и системный характер, что является признаком финансовых махинаций.\nЕсли в течение 24 часов 200 EUR не будут зачислены, я инициирую заявление в\nправоохранительные органы.",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "претензия",
+    "address": {
+      "country": "Казахстан",
+      "region": "г. Шымкент",
+      "city": "Шымкент",
+      "street": "ул. Рыскулова",
+      "house": "87",
+      "lat": 42.338304,
+      "lon": 69.640003,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "претензия",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент жалуется на задержку перевода в 200 EUR и обвиняет компанию в мошенничестве. Требует зачисления средств в течение 24 часов, иначе угрожает обращением в правоохранительные органы. Рекомендуется срочно проверить статус перевода и связаться с клиентом.",
+      "needs_data_change": false,
+      "needs_location_routing": false,
+      "processing_time_ms": 2123
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.95
+    },
+    "pii_count": 0
+  },
+  {
+    "row": 31,
+    "guid": "117af0c4-cb00-f111-8407-0022481ba51f",
+    "age": 30,
+    "segment": "VIP",
+    "text": "Срочно срочно срочно \nПрошу вас удалить мои персональные данные,отзываю согласие на их обработку и\nпрекратить любые звонки и смс\nОтправлено из Mail для Android",
+    "is_spam": false,
+    "spam_probability": 0,
+    "status": "enriched",
+    "ticket_type": "смена_данных",
+    "address": {
+      "country": "Казахстан",
+      "region": "Карагандинская",
+      "city": "Караганда",
+      "street": "мкр. Центральный",
+      "house": "9",
+      "lat": 49.864672,
+      "lon": 73.028333,
+      "geo_status": "resolved"
+    },
+    "ai": {
+      "type": "смена_данных",
+      "language": "RU",
+      "language_actual": "russian",
+      "summary": "Клиент просит удалить его персональные данные и отозвать согласие на их обработку, а также прекратить звонки и смс. Необходимо выполнить запрос клиента по удалению данных.",
+      "needs_data_change": true,
+      "needs_location_routing": false,
+      "processing_time_ms": 1868
+    },
+    "sentiment": {
+      "label": "негативный",
+      "confidence": 0.9
+    },
+    "pii_count": 0
+  }
+]

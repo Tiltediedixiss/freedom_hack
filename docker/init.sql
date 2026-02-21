@@ -5,19 +5,28 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================
--- ENUM TYPES
+-- ENUM TYPES (Russian values per spec)
 -- ============================================================
+CREATE TYPE ticket_type AS ENUM (
+    'жалоба', 'смена_данных', 'консультация', 'претензия',
+    'неработоспособность', 'мошенничество', 'спам'
+);
+
+CREATE TYPE sentiment_type AS ENUM (
+    'позитивный', 'нейтральный', 'негативный'
+);
+
+CREATE TYPE segment_type AS ENUM (
+    'VIP', 'Priority', 'Mass'
+);
+
+CREATE TYPE manager_position AS ENUM (
+    'специалист', 'ведущий_специалист', 'главный_специалист'
+);
+
 CREATE TYPE ticket_status AS ENUM (
     'new', 'ingested', 'pii_stripped', 'spam_checked',
     'analyzing', 'enriched', 'routed', 'closed'
-);
-
-CREATE TYPE ticket_type AS ENUM (
-    'complaint', 'request', 'suggestion', 'question', 'other'
-);
-
-CREATE TYPE priority_level AS ENUM (
-    'critical', 'high', 'medium', 'low'
 );
 
 CREATE TYPE processing_stage AS ENUM (
@@ -30,20 +39,34 @@ CREATE TYPE stage_status AS ENUM (
     'pending', 'in_progress', 'completed', 'failed', 'skipped'
 );
 
+CREATE TYPE address_status AS ENUM (
+    'resolved', 'unknown', 'foreign', 'partial'
+);
+
+-- ============================================================
+-- BUSINESS UNITS TABLE (offices)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS business_units (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    address TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    geo_point GEOGRAPHY(POINT, 4326),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================================
 -- MANAGERS TABLE
 -- ============================================================
 CREATE TABLE IF NOT EXISTS managers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE,
-    phone VARCHAR(50),
-    competencies TEXT[] DEFAULT '{}',
-    latitude DOUBLE PRECISION,
-    longitude DOUBLE PRECISION,
-    geo_point GEOGRAPHY(POINT, 4326),
-    max_tickets_per_day INT DEFAULT 20,
-    current_load INT DEFAULT 0,
+    full_name VARCHAR(255) NOT NULL,
+    position manager_position NOT NULL DEFAULT 'специалист',
+    skill_factor DOUBLE PRECISION DEFAULT 1.0,
+    skills TEXT[] DEFAULT '{}',
+    business_unit_id UUID REFERENCES business_units(id),
+    csv_load INT DEFAULT 0,
     stress_score DOUBLE PRECISION DEFAULT 0.0,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -55,23 +78,26 @@ CREATE TABLE IF NOT EXISTS managers (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS tickets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    external_id VARCHAR(255),
-    user_name VARCHAR(255),
-    user_email VARCHAR(255),
-    user_age INT,
-    subject VARCHAR(500),
-    body TEXT NOT NULL,
-    body_anonymized TEXT,
-    language VARCHAR(10),
+    csv_row_index INT,
+    guid VARCHAR(255),
+    gender VARCHAR(20),
+    birth_date DATE,
+    age INT,
+    description TEXT,
+    description_anonymized TEXT,
+    attachments TEXT[] DEFAULT '{}',
+    segment segment_type,
+    country VARCHAR(255),
+    region VARCHAR(255),
+    city VARCHAR(255),
+    street VARCHAR(255),
+    house VARCHAR(100),
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     geo_point GEOGRAPHY(POINT, 4326),
-    address TEXT,
-    attachment_urls TEXT[] DEFAULT '{}',
-    ticket_type ticket_type DEFAULT 'other',
+    address_status address_status DEFAULT 'unknown',
+    ticket_type ticket_type,
     status ticket_status DEFAULT 'new',
-    priority priority_level,
-    priority_score DOUBLE PRECISION,
     is_spam BOOLEAN DEFAULT FALSE,
     spam_probability DOUBLE PRECISION DEFAULT 0.0,
     text_length INT,
@@ -89,13 +115,22 @@ CREATE TABLE IF NOT EXISTS ai_analysis (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     detected_type ticket_type,
-    detected_language VARCHAR(10),
+    language_label VARCHAR(10),
+    language_actual VARCHAR(50),
+    language_is_mixed BOOLEAN DEFAULT FALSE,
+    language_note TEXT,
     summary TEXT,
     summary_anonymized TEXT,
-    sentiment_score DOUBLE PRECISION,
-    sentiment_label VARCHAR(50),
-    key_phrases TEXT[] DEFAULT '{}',
-    attachment_analysis JSONB DEFAULT '{}',
+    attachment_analysis TEXT,
+    sentiment sentiment_type,
+    sentiment_confidence DOUBLE PRECISION,
+    priority_base DOUBLE PRECISION,
+    priority_extra DOUBLE PRECISION,
+    priority_final DOUBLE PRECISION,
+    priority_breakdown JSONB DEFAULT '{}',
+    anomaly_flags JSONB DEFAULT '[]',
+    needs_data_change BOOLEAN DEFAULT FALSE,
+    needs_location_routing BOOLEAN DEFAULT FALSE,
     llm_model VARCHAR(100),
     llm_tokens_used INT DEFAULT 0,
     processing_time_ms INT DEFAULT 0,
@@ -103,22 +138,32 @@ CREATE TABLE IF NOT EXISTS ai_analysis (
 );
 
 -- ============================================================
--- PII MAPPINGS TABLE (for re-hydration)
+-- PII MAPPINGS TABLE (encrypted)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS pii_mappings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     token VARCHAR(100) NOT NULL,
-    original_value TEXT NOT NULL,
+    original_value BYTEA NOT NULL,
     pii_type VARCHAR(50) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Encrypt pii original_value at rest
--- (Application-level encryption recommended; pgcrypto available for DB-level)
+-- ============================================================
+-- ASSIGNMENTS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS assignments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    manager_id UUID NOT NULL REFERENCES managers(id),
+    business_unit_id UUID REFERENCES business_units(id),
+    explanation TEXT,
+    routing_details JSONB DEFAULT '{}',
+    assigned_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- ============================================================
--- PROCESSING STATE TABLE (for SSE tracking)
+-- PROCESSING STATE TABLE (SSE tracking)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS processing_state (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -139,13 +184,12 @@ CREATE TABLE IF NOT EXISTS processing_state (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS geocoding_cache (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    address_query TEXT NOT NULL,
+    address_query TEXT NOT NULL UNIQUE,
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     provider VARCHAR(50),
     raw_response JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(address_query)
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================================
@@ -164,44 +208,111 @@ CREATE TABLE IF NOT EXISTS batch_uploads (
 );
 
 -- ============================================================
--- PII-STRIPPED VIEW (safe for external use)
+-- AUDIT LOG TABLE
 -- ============================================================
-CREATE OR REPLACE VIEW tickets_safe AS
+CREATE TABLE IF NOT EXISTS audit_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id VARCHAR(255),
+    ticket_id UUID REFERENCES tickets(id),
+    action VARCHAR(100) NOT NULL,
+    details JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- PII-STRIPPED VIEWS (for MCP server / star task)
+-- ============================================================
+CREATE OR REPLACE VIEW v_ticket_analytics AS
 SELECT
-    t.id,
-    t.external_id,
-    t.body_anonymized AS body,
-    t.language,
-    t.ticket_type,
+    t.id AS ticket_id,
+    t.csv_row_index,
+    t.segment,
+    t.country,
+    t.city,
     t.status,
-    t.priority,
-    t.priority_score,
     t.is_spam,
-    t.spam_probability,
     t.text_length,
-    t.text_length_times_age,
     t.id_count_of_user,
-    t.assigned_manager_id,
-    t.created_at,
     a.detected_type,
-    a.detected_language,
+    a.language_label,
+    a.sentiment,
+    a.sentiment_confidence,
+    a.priority_final,
+    a.priority_breakdown,
+    a.anomaly_flags,
     a.summary_anonymized AS summary,
-    a.sentiment_score,
-    a.sentiment_label
+    t.created_at
 FROM tickets t
 LEFT JOIN ai_analysis a ON a.ticket_id = t.id;
+
+CREATE OR REPLACE VIEW v_assignment_overview AS
+SELECT
+    asgn.id AS assignment_id,
+    asgn.ticket_id,
+    t.csv_row_index,
+    m.full_name AS manager_name,
+    bu.name AS office_name,
+    asgn.explanation,
+    asgn.routing_details,
+    asgn.assigned_at
+FROM assignments asgn
+JOIN tickets t ON t.id = asgn.ticket_id
+JOIN managers m ON m.id = asgn.manager_id
+LEFT JOIN business_units bu ON bu.id = asgn.business_unit_id;
+
+CREATE OR REPLACE VIEW v_manager_load AS
+SELECT
+    m.id AS manager_id,
+    m.full_name,
+    m.position,
+    bu.name AS office,
+    m.csv_load,
+    m.stress_score,
+    m.skills,
+    (SELECT COUNT(*) FROM assignments a WHERE a.manager_id = m.id) AS assigned_count
+FROM managers m
+LEFT JOIN business_units bu ON bu.id = m.business_unit_id;
+
+CREATE OR REPLACE VIEW v_priority_distribution AS
+SELECT
+    a.priority_final,
+    a.detected_type,
+    a.sentiment,
+    t.segment,
+    COUNT(*) AS ticket_count
+FROM ai_analysis a
+JOIN tickets t ON t.id = a.ticket_id
+WHERE t.is_spam = FALSE
+GROUP BY a.priority_final, a.detected_type, a.sentiment, t.segment;
 
 -- ============================================================
 -- INDEXES
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_is_spam ON tickets(is_spam);
-CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority);
+CREATE INDEX IF NOT EXISTS idx_tickets_guid ON tickets(guid);
+CREATE INDEX IF NOT EXISTS idx_tickets_csv_row ON tickets(csv_row_index);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned_manager ON tickets(assigned_manager_id);
-CREATE INDEX IF NOT EXISTS idx_tickets_user_email ON tickets(user_email);
 CREATE INDEX IF NOT EXISTS idx_tickets_geo ON tickets USING GIST(geo_point);
-CREATE INDEX IF NOT EXISTS idx_managers_geo ON managers USING GIST(geo_point);
+CREATE INDEX IF NOT EXISTS idx_managers_geo ON business_units USING GIST(geo_point);
 CREATE INDEX IF NOT EXISTS idx_processing_state_ticket ON processing_state(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_processing_state_batch ON processing_state(batch_id);
 CREATE INDEX IF NOT EXISTS idx_ai_analysis_ticket ON ai_analysis(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_pii_mappings_ticket ON pii_mappings(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_ticket ON assignments(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_manager ON assignments(manager_id);
+
+-- ============================================================
+-- RESTRICTED ROLE for MCP Server
+-- ============================================================
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'fire_readonly') THEN
+        CREATE ROLE fire_readonly LOGIN PASSWORD 'readonly_secret';
+    END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE fire_db TO fire_readonly;
+GRANT USAGE ON SCHEMA public TO fire_readonly;
+GRANT SELECT ON v_ticket_analytics, v_assignment_overview, v_manager_load, v_priority_distribution TO fire_readonly;

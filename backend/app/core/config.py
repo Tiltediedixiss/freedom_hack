@@ -1,6 +1,5 @@
 """
 F.I.R.E. Application Configuration.
-Reads settings from environment variables.
 """
 
 from pydantic_settings import BaseSettings
@@ -8,10 +7,9 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment."""
-
     # ── Database ──
     DATABASE_URL: str = "postgresql+asyncpg://fire_user:fire_secret_password@localhost:5432/fire_db"
+    PGCRYPTO_KEY: str = "fire_encryption_key_change_me"
 
     # ── OpenRouter ──
     OPENROUTER_API_KEY: str = ""
@@ -21,6 +19,9 @@ class Settings(BaseSettings):
 
     # ── 2GIS Geocoding ──
     TWOGIS_API_KEY: str = ""
+
+    # ── Spam filter ──
+    SPAM_THRESHOLD: float = 0.95
 
     # ── App ──
     APP_ENV: str = "development"

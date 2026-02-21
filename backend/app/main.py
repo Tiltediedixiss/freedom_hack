@@ -1,8 +1,9 @@
 """
 F.I.R.E. — Freedom Intelligent Routing Engine
-FastAPI Application Entrypoint
+FastAPI Application
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,51 +14,47 @@ from app.api import ingest, tickets, processing, dashboard
 
 settings = get_settings()
 
+# ── Logging setup ──
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)-18s %(levelname)-5s %(message)s",
+    datefmt="%H:%M:%S",
+)
+# Make pipeline logs always visible
+logging.getLogger("pipeline").setLevel(logging.DEBUG)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application startup / shutdown lifecycle."""
-    # ── Startup ──
-    print("🔥 F.I.R.E. Engine starting up...")
+    print("F.I.R.E. Engine starting up...")
     yield
-    # ── Shutdown ──
-    print("🔥 F.I.R.E. Engine shutting down...")
+    print("F.I.R.E. Engine shutting down...")
 
 
 app = FastAPI(
     title="F.I.R.E. — Freedom Intelligent Routing Engine",
-    description=(
-        "AI-powered ticket routing system with real-time processing, "
-        "PII anonymization, sentiment analysis, geocoding, and smart routing."
-    ),
+    description="AI-powered ticket routing: PII anonymization → spam filter → parallel LLM analysis → geocoding → priority scoring → smart routing",
     version="0.1.0",
     lifespan=lifespan,
 )
 
-# ── CORS (allow frontend) ──
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Lock down in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── Register routers ──
 app.include_router(ingest.router)
 app.include_router(tickets.router)
 app.include_router(processing.router)
 app.include_router(dashboard.router)
 
 
-# ── Health check ──
 @app.get("/health", tags=["System"])
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "F.I.R.E. Engine",
-        "version": "0.1.0",
-    }
+async def health():
+    return {"status": "healthy", "service": "F.I.R.E. Engine", "version": "0.1.0"}
 
 
 @app.get("/", tags=["System"])

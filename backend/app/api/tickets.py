@@ -1,25 +1,31 @@
 """
-API routes for ticket CRUD operations.
-  GET  /api/tickets           — list tickets (paginated)
-  GET  /api/tickets/{id}      — get single ticket
-  GET  /api/tickets/safe      — PII-stripped list
-  GET  /api/tickets/batch/{id} — get batch status
+API routes for ticket operations.
+  GET  /api/tickets            — list all tickets (paginated)
+  GET  /api/tickets/count      — total ticket count
+  GET  /api/tickets/export     — export results.json (full text + sentiment)
+  GET  /api/tickets/batch/{id} — batch upload status
+  GET  /api/tickets/row/{idx}  — lookup by CSV row index (demo feature)
+  GET  /api/tickets/{id}       — single ticket by UUID
 """
 
 import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.models.models import BatchUpload, Ticket
+from app.models.models import (
+    AIAnalysis, Assignment, BatchUpload, BusinessUnit,
+    Manager, PIIMapping, Ticket,
+)
 from app.models.schemas import (
-    BatchUploadResponse,
+    AIAnalysisResponse, AssignmentResponse, BatchUploadResponse,
+    BusinessUnitResponse, ManagerResponse, TicketLookupResponse,
     TicketResponse,
-    TicketSafeResponse,
 )
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
@@ -34,18 +40,14 @@ async def list_tickets(
     db: AsyncSession = Depends(get_db),
 ):
     """List tickets with optional filters and pagination."""
-    query = select(Ticket).order_by(Ticket.created_at.desc())
-
+    query = select(Ticket).order_by(Ticket.csv_row_index)
     if status:
         query = query.where(Ticket.status == status)
     if is_spam is not None:
         query = query.where(Ticket.is_spam == is_spam)
-
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
-    tickets = result.scalars().all()
-
-    return [TicketResponse.model_validate(t) for t in tickets]
+    return [TicketResponse.model_validate(t) for t in result.scalars().all()]
 
 
 @router.get("/count")
@@ -54,7 +56,6 @@ async def ticket_count(
     is_spam: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get total ticket count with optional filters."""
     query = select(func.count(Ticket.id))
     if status:
         query = query.where(Ticket.status == status)
@@ -64,19 +65,136 @@ async def ticket_count(
     return {"count": result.scalar()}
 
 
+@router.get("/export")
+async def export_results(
+    batch_id: Optional[uuid.UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Export all enriched tickets as results.json.
+    Returns full description text (not truncated preview),
+    separate sentiment analysis result, and PII count.
+    """
+    query = (
+        select(Ticket)
+        .options(
+            selectinload(Ticket.ai_analysis),
+            selectinload(Ticket.pii_mappings),
+        )
+        .order_by(Ticket.csv_row_index)
+    )
+    result = await db.execute(query)
+    tickets = result.scalars().all()
+
+    export_data = []
+    for t in tickets:
+        ai = t.ai_analysis
+        pii_count = len(t.pii_mappings) if t.pii_mappings else 0
+
+        entry = {
+            "row": t.csv_row_index,
+            "guid": t.guid,
+            "age": t.age,
+            "segment": t.segment,
+            "text": t.description,
+            "is_spam": t.is_spam,
+            "spam_probability": round(t.spam_probability, 4) if t.spam_probability else 0,
+            "status": t.status.value if hasattr(t.status, "value") else str(t.status),
+            "ticket_type": t.ticket_type,
+            "address": {
+                "country": t.country,
+                "region": t.region,
+                "city": t.city,
+                "street": t.street,
+                "house": t.house,
+                "lat": t.latitude,
+                "lon": t.longitude,
+                "geo_status": t.address_status,
+            },
+            "ai": None,
+            "sentiment": None,
+            "pii_count": pii_count,
+        }
+
+        if ai:
+            entry["ai"] = {
+                "type": ai.detected_type,
+                "language": ai.language_label,
+                "language_actual": ai.language_actual,
+                "summary": ai.summary,
+                "needs_data_change": ai.needs_data_change,
+                "needs_location_routing": ai.needs_location_routing,
+                "processing_time_ms": ai.processing_time_ms,
+            }
+            entry["sentiment"] = {
+                "label": ai.sentiment,
+                "confidence": round(ai.sentiment_confidence, 4) if ai.sentiment_confidence else None,
+            }
+
+        export_data.append(entry)
+
+    return JSONResponse(content=export_data)
+
+
 @router.get("/batch/{batch_id}", response_model=BatchUploadResponse)
 async def get_batch_status(
     batch_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get the status of a batch upload."""
-    result = await db.execute(
-        select(BatchUpload).where(BatchUpload.id == batch_id)
-    )
+    result = await db.execute(select(BatchUpload).where(BatchUpload.id == batch_id))
     batch = result.scalar_one_or_none()
     if not batch:
-        raise HTTPException(status_code=404, detail="Batch not found")
+        raise HTTPException(404, "Batch not found")
     return BatchUploadResponse.model_validate(batch)
+
+
+@router.get("/row/{row_index}", response_model=TicketLookupResponse)
+async def lookup_by_row(
+    row_index: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Lookup ticket by CSV row index — the key demo feature.
+    Returns full assignment chain: ticket + AI analysis + assignment + manager + office.
+    """
+    result = await db.execute(
+        select(Ticket)
+        .options(
+            selectinload(Ticket.ai_analysis),
+            selectinload(Ticket.assignment),
+        )
+        .where(Ticket.csv_row_index == row_index)
+    )
+    ticket = result.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(404, f"No ticket found for row index {row_index}")
+
+    response = TicketLookupResponse(
+        ticket=TicketResponse.model_validate(ticket),
+    )
+
+    if ticket.ai_analysis:
+        response.ai_analysis = AIAnalysisResponse.model_validate(ticket.ai_analysis)
+
+    if ticket.assignment:
+        response.assignment = AssignmentResponse.model_validate(ticket.assignment)
+
+        # Fetch manager
+        mgr_result = await db.execute(
+            select(Manager).where(Manager.id == ticket.assignment.manager_id)
+        )
+        mgr = mgr_result.scalar_one_or_none()
+        if mgr:
+            response.manager = ManagerResponse.model_validate(mgr)
+            if mgr.business_unit_id:
+                bu_result = await db.execute(
+                    select(BusinessUnit).where(BusinessUnit.id == mgr.business_unit_id)
+                )
+                bu = bu_result.scalar_one_or_none()
+                if bu:
+                    response.business_unit = BusinessUnitResponse.model_validate(bu)
+
+    return response
 
 
 @router.get("/{ticket_id}", response_model=TicketResponse)
@@ -84,11 +202,8 @@ async def get_ticket(
     ticket_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a single ticket by ID."""
-    result = await db.execute(
-        select(Ticket).where(Ticket.id == ticket_id)
-    )
+    result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
     ticket = result.scalar_one_or_none()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise HTTPException(404, "Ticket not found")
     return TicketResponse.model_validate(ticket)

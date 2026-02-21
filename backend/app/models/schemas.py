@@ -1,84 +1,74 @@
 """
-Pydantic schemas for request/response validation.
+Pydantic schemas for F.I.R.E. request/response validation.
 """
-
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 
-# ── Manager Schemas ──
+# ── SSE Event ──
+
+class SSEEvent(BaseModel):
+    event_type: str
+    ticket_id: uuid.UUID
+    batch_id: Optional[uuid.UUID] = None
+    stage: str
+    status: str
+    field: Optional[str] = None
+    data: dict = Field(default_factory=dict)
+    message: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
-class ManagerBase(BaseModel):
-    name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    competencies: list[str] = Field(default_factory=list)
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    max_tickets_per_day: int = 20
-    is_active: bool = True
+# ── Ingest Responses ──
+
+class IngestTicketsResponse(BaseModel):
+    batch_id: uuid.UUID
+    total_rows: int
+    processed_rows: int
+    failed_rows: int
+    message: str
+    errors: list = Field(default_factory=list)
 
 
-class ManagerCreate(ManagerBase):
-    pass
+class IngestManagersResponse(BaseModel):
+    total_imported: int
+    message: str
+    errors: list = Field(default_factory=list)
 
 
-class ManagerResponse(ManagerBase):
-    id: uuid.UUID
-    current_load: int = 0
-    stress_score: float = 0.0
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
+class IngestBusinessUnitsResponse(BaseModel):
+    total_imported: int
+    message: str
 
 
 # ── Ticket Schemas ──
 
-
-class TicketBase(BaseModel):
-    external_id: Optional[str] = None
-    user_name: Optional[str] = None
-    user_email: Optional[str] = None
-    user_age: Optional[int] = None
-    subject: Optional[str] = None
-    body: str
-    language: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    address: Optional[str] = None
-    attachment_urls: list[str] = Field(default_factory=list)
-
-
-class TicketCreate(TicketBase):
-    pass
-
-
 class TicketResponse(BaseModel):
     id: uuid.UUID
-    external_id: Optional[str] = None
-    user_name: Optional[str] = None
-    user_email: Optional[str] = None
-    user_age: Optional[int] = None
-    subject: Optional[str] = None
-    body: str
-    body_anonymized: Optional[str] = None
-    language: Optional[str] = None
+    csv_row_index: Optional[int] = None
+    guid: Optional[str] = None
+    gender: Optional[str] = None
+    birth_date: Optional[date] = None
+    age: Optional[int] = None
+    description: Optional[str] = None
+    description_anonymized: Optional[str] = None
+    attachments: list[str] = Field(default_factory=list)
+    segment: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    street: Optional[str] = None
+    house: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    address: Optional[str] = None
-    attachment_urls: list[str] = Field(default_factory=list)
+    address_status: Optional[str] = None
     ticket_type: Optional[str] = None
     status: str = "new"
-    priority: Optional[str] = None
-    priority_score: Optional[float] = None
     is_spam: bool = False
     spam_probability: float = 0.0
     text_length: Optional[int] = None
@@ -92,26 +82,33 @@ class TicketResponse(BaseModel):
         from_attributes = True
 
 
-class TicketSafeResponse(BaseModel):
-    """PII-stripped ticket response for external consumption."""
+# ── Manager Schemas ──
+
+class ManagerResponse(BaseModel):
     id: uuid.UUID
-    external_id: Optional[str] = None
-    body: Optional[str] = None  # This is body_anonymized
-    language: Optional[str] = None
-    ticket_type: Optional[str] = None
-    status: str
-    priority: Optional[str] = None
-    priority_score: Optional[float] = None
-    is_spam: bool = False
-    spam_probability: float = 0.0
-    text_length: Optional[int] = None
-    text_length_times_age: Optional[float] = None
-    id_count_of_user: int = 0
-    assigned_manager_id: Optional[uuid.UUID] = None
+    full_name: str
+    position: str
+    skill_factor: float
+    skills: list[str] = Field(default_factory=list)
+    business_unit_id: Optional[uuid.UUID] = None
+    csv_load: int = 0
+    stress_score: float = 0.0
+    is_active: bool = True
     created_at: datetime
-    sentiment_score: Optional[float] = None
-    sentiment_label: Optional[str] = None
-    summary: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Business Unit Schemas ──
+
+class BusinessUnitResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -119,19 +116,25 @@ class TicketSafeResponse(BaseModel):
 
 # ── AI Analysis Schemas ──
 
-
 class AIAnalysisResponse(BaseModel):
     id: uuid.UUID
     ticket_id: uuid.UUID
     detected_type: Optional[str] = None
-    detected_language: Optional[str] = None
+    language_label: Optional[str] = None
+    language_actual: Optional[str] = None
+    language_is_mixed: bool = False
+    language_note: Optional[str] = None
     summary: Optional[str] = None
-    sentiment_score: Optional[float] = None
-    sentiment_label: Optional[str] = None
-    key_phrases: list[str] = Field(default_factory=list)
-    attachment_analysis: dict = Field(default_factory=dict)
-    llm_model: Optional[str] = None
-    llm_tokens_used: int = 0
+    attachment_analysis: Optional[str] = None
+    sentiment: Optional[str] = None
+    sentiment_confidence: Optional[float] = None
+    priority_base: Optional[float] = None
+    priority_extra: Optional[float] = None
+    priority_final: Optional[float] = None
+    priority_breakdown: dict = Field(default_factory=dict)
+    anomaly_flags: list = Field(default_factory=list)
+    needs_data_change: bool = False
+    needs_location_routing: bool = False
     processing_time_ms: int = 0
     created_at: datetime
 
@@ -139,8 +142,22 @@ class AIAnalysisResponse(BaseModel):
         from_attributes = True
 
 
-# ── Processing State Schemas ──
+# ── Assignment Schemas ──
 
+class AssignmentResponse(BaseModel):
+    id: uuid.UUID
+    ticket_id: uuid.UUID
+    manager_id: uuid.UUID
+    business_unit_id: Optional[uuid.UUID] = None
+    explanation: Optional[str] = None
+    routing_details: dict = Field(default_factory=dict)
+    assigned_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Processing State ──
 
 class ProcessingStateResponse(BaseModel):
     id: uuid.UUID
@@ -159,8 +176,7 @@ class ProcessingStateResponse(BaseModel):
         from_attributes = True
 
 
-# ── Batch Upload Schemas ──
-
+# ── Batch Upload ──
 
 class BatchUploadResponse(BaseModel):
     id: uuid.UUID
@@ -177,30 +193,37 @@ class BatchUploadResponse(BaseModel):
         from_attributes = True
 
 
-# ── SSE Event Schema ──
+# ── LLM / AI Result DTOs (internal, not API responses) ──
+
+class LLMAnalysisResult(BaseModel):
+    detected_type: str
+    language_label: str
+    language_actual: str
+    language_is_mixed: bool = False
+    language_note: Optional[str] = None
+    summary: str
+    attachment_analysis: Optional[str] = None
+    needs_data_change: bool = False
+    needs_location_routing: bool = False
 
 
-class SSEEvent(BaseModel):
-    """Schema for Server-Sent Events pushed to frontend."""
-    event_type: str  # e.g. "ingestion", "spam_check", "sentiment", etc.
-    ticket_id: uuid.UUID
-    batch_id: Optional[uuid.UUID] = None
-    stage: str
-    status: str
-    data: dict = Field(default_factory=dict)
-    message: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+class SentimentResult(BaseModel):
+    sentiment: str
+    confidence: float
 
 
-# ── Ingest Request Schemas ──
+class GeocodingResult(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    provider: Optional[str] = None
+    address_status: str = "unknown"
 
 
-class IngestResponse(BaseModel):
-    batch_id: uuid.UUID
-    total_rows: int
-    message: str
+# ── Ticket Lookup (row index) ──
 
-
-class IngestManagersResponse(BaseModel):
-    total_imported: int
-    message: str
+class TicketLookupResponse(BaseModel):
+    ticket: TicketResponse
+    ai_analysis: Optional[AIAnalysisResponse] = None
+    assignment: Optional[AssignmentResponse] = None
+    manager: Optional[ManagerResponse] = None
+    business_unit: Optional[BusinessUnitResponse] = None
