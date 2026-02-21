@@ -67,6 +67,7 @@ class TicketResponse(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     address_status: Optional[str] = None
+    geo_explanation: Optional[str] = None
     ticket_type: Optional[str] = None
     status: str = "new"
     is_spam: bool = False
@@ -217,6 +218,7 @@ class GeocodingResult(BaseModel):
     longitude: Optional[float] = None
     provider: Optional[str] = None
     address_status: str = "unknown"
+    explanation: Optional[str] = None
 
 
 # ── Ticket Lookup (row index) ──

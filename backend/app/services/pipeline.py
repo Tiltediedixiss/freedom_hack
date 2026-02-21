@@ -257,6 +257,7 @@ async def process_ticket(
         ticket.latitude = geo_result.latitude
         ticket.longitude = geo_result.longitude
         ticket.address_status = geo_result.address_status
+        ticket.geo_explanation = geo_result.explanation
         if geo_result.latitude and geo_result.longitude:
             ticket.geo_point = f"SRID=4326;POINT({geo_result.longitude} {geo_result.latitude})"
         result["stages"]["geocoding"] = {
@@ -264,6 +265,7 @@ async def process_ticket(
             "lon": geo_result.longitude,
             "provider": geo_result.provider,
             "status": geo_result.address_status,
+            "geo_explanation": geo_result.explanation,
             "elapsed_ms": geo_data["elapsed_ms"],
             "error": geo_data.get("error"),
         }

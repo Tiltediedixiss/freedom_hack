@@ -184,6 +184,7 @@ class Ticket(Base):
         Enum(AddressStatusEnum, name="address_status", create_type=False),
         default=AddressStatusEnum.unknown,
     )
+    geo_explanation = Column(Text)
     ticket_type = Column(Enum(TicketTypeEnum, name="ticket_type", create_type=False))
     status = Column(
         Enum(TicketStatusEnum, name="ticket_status", create_type=False),

@@ -10,12 +10,16 @@ Single call extracts:
 
 Sentiment is handled separately by T6 (sentiment_analyzer.py) in parallel.
 Includes retry with exponential backoff for OpenRouter flakiness.
+Supports multimodal input (images) for attachment analysis.
 """
 
 import asyncio
+import base64
 import json
 import logging
+import os
 import time
+from pathlib import Path
 
 import httpx
 
@@ -25,6 +29,23 @@ from app.models.schemas import LLMAnalysisResult
 
 log = logging.getLogger("pipeline.llm")
 settings = get_settings()
+
+# ── Retry config ──
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0  # seconds
+
+# Supported image MIME types for multimodal input
+_IMAGE_EXTENSIONS = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+}
+
+# Directory where attachment files are stored (inside Docker container)
+UPLOADS_DIR = Path(os.environ.get("UPLOADS_DIR", "/app/uploads"))
 
 # ── Retry config ──
 MAX_RETRIES = 3
@@ -93,9 +114,10 @@ Respond with ONLY valid JSON:
 }}"""
 
 
-async def _call_openrouter(prompt: str) -> dict:
+async def _call_openrouter(messages: list[dict]) -> dict:
     """
     Call OpenRouter with retry + exponential backoff.
+    Accepts full messages array for multimodal support.
     Returns parsed JSON response.
     """
     last_error = None
@@ -112,10 +134,7 @@ async def _call_openrouter(prompt: str) -> dict:
                     },
                     json={
                         "model": settings.OPENROUTER_MODEL,
-                        "messages": [
-                            {"role": "system", "content": "You are a precise ticket classification system. Return only valid JSON."},
-                            {"role": "user", "content": prompt},
-                        ],
+                        "messages": messages,
                         "temperature": 0.1,
                         "max_tokens": 1000,
                         "response_format": {"type": "json_object"},
@@ -152,18 +171,65 @@ async def _call_openrouter(prompt: str) -> dict:
     raise RuntimeError(f"OpenRouter failed after {MAX_RETRIES} retries: {last_error}")
 
 
+def _load_image_as_base64(filename: str) -> tuple[str, str] | None:
+    """
+    Load an image file from the uploads directory and return (base64_data, mime_type).
+    Returns None if file doesn't exist or isn't a supported image format.
+    """
+    ext = Path(filename).suffix.lower()
+    mime_type = _IMAGE_EXTENSIONS.get(ext)
+    if not mime_type:
+        log.debug("    Attachment '%s' is not a supported image format", filename)
+        return None
+
+    # Try multiple paths: uploads dir, and relative to app root
+    candidates = [
+        UPLOADS_DIR / filename,
+        Path("/app") / filename,
+        Path("/app/uploads") / filename,
+    ]
+    for filepath in candidates:
+        if filepath.is_file():
+            try:
+                data = filepath.read_bytes()
+                b64 = base64.b64encode(data).decode("ascii")
+                log.info("    Loaded attachment image: %s (%d bytes)", filepath, len(data))
+                return b64, mime_type
+            except Exception as e:
+                log.warning("    Failed to read attachment '%s': %s", filepath, e)
+    log.info("    Attachment file not found: %s", filename)
+    return None
+
+
 async def analyze_ticket(
     ticket_text: str,
     age: int | None = None,
     attachments: list[str] | None = None,
 ) -> LLMAnalysisResult:
     """
-    Call OpenRouter LLM to analyze a ticket (type + language + sentiment + summary).
-    Single call replaces the old separate T5 + T6 calls.
+    Call OpenRouter LLM to analyze a ticket (type + language + summary).
+    Supports multimodal input: if attachments contain image files,
+    they are loaded, base64-encoded, and sent as vision content.
     """
+    # Build attachment context and load images
     attachment_context = ""
+    image_parts: list[dict] = []
+
     if attachments:
-        attachment_context = f"ATTACHMENTS: {', '.join(attachments)}"
+        attachment_names = ", ".join(attachments)
+        attachment_context = f"ATTACHMENTS: {attachment_names}"
+
+        for att_filename in attachments:
+            img_data = _load_image_as_base64(att_filename)
+            if img_data:
+                b64, mime = img_data
+                image_parts.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime};base64,{b64}",
+                    },
+                })
+                attachment_context += f"\n[Image '{att_filename}' attached — analyze its content for additional context]"
 
     prompt = ANALYSIS_PROMPT.format(
         ticket_text=ticket_text or "(empty ticket body)",
@@ -171,7 +237,18 @@ async def analyze_ticket(
         age=age if age is not None else "unknown",
     )
 
-    result = await _call_openrouter(prompt)
+    # Build messages array (multimodal if images exist)
+    system_msg = {"role": "system", "content": "You are a precise ticket classification system. Return only valid JSON."}
+
+    if image_parts:
+        # Multimodal message: text + images
+        user_content = [{"type": "text", "text": prompt}] + image_parts
+        user_msg = {"role": "user", "content": user_content}
+        log.info("    Sending multimodal request with %d image(s)", len(image_parts))
+    else:
+        user_msg = {"role": "user", "content": prompt}
+
+    result = await _call_openrouter([system_msg, user_msg])
 
     # Validate type
     valid_types = [t.value for t in TicketTypeEnum]

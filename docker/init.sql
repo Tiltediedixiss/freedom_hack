@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     longitude DOUBLE PRECISION,
     geo_point GEOGRAPHY(POINT, 4326),
     address_status address_status DEFAULT 'unknown',
+    geo_explanation TEXT,
     ticket_type ticket_type,
     status ticket_status DEFAULT 'new',
     is_spam BOOLEAN DEFAULT FALSE,

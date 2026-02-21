@@ -110,6 +110,7 @@ async def export_results(
                 "lat": t.latitude,
                 "lon": t.longitude,
                 "geo_status": t.address_status,
+                "geo_explanation": t.geo_explanation,
             },
             "ai": None,
             "sentiment": None,

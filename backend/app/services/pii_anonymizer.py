@@ -68,32 +68,6 @@ EMAIL_PATTERN = re.compile(
     r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'
 )
 
-# Full name: two consecutive words each starting with a capital letter
-# Matches patterns like "Иван Иванов", "John Doe", "Динара Воробьева"
-# Excludes common non-name bigrams (greetings, abbreviations, etc.)
-FULL_NAME_PATTERN = re.compile(
-    r'(?<![А-ЯЁA-Z])'                          # not preceded by uppercase
-    r'([А-ЯЁA-Z][а-яёa-z]{1,20})'              # First name (2-21 chars)
-    r'\s+'
-    r'([А-ЯЁA-Z][а-яёa-z]{1,25})'              # Last name (2-26 chars)
-    r'(?![а-яёa-z])'                            # not followed by lowercase
-)
-
-# Words that look like names but aren't — skip these bigrams
-_FULL_NAME_IGNORE = {
-    # Russian greetings / common sentence starters
-    "добрый день", "добрый вечер", "доброе утро", "уважаемые коллеги",
-    "уважаемый клиент", "здравствуйте уважаемые", "здравствуйте вы",
-    "подскажите пожалуйста", "хочу узнать", "прошу вас",
-    # Company / product names
-    "freedom broker", "freedom finance", "money advisor",
-    # Common two-word phrases in financial context
-    "московская биржа", "саудовской аравии", "казахстанской облигации",
-    "брокерский счет", "брокерские услуги", "бездействующих счетов",
-    "личности изменить", "специальные цены", "наличии складе",
-    # Address-related
-    "северо казахстанская",
-}
 
 
 @dataclass
@@ -151,21 +125,6 @@ def anonymize_text(text: str) -> AnonymizationResult:
         detections.append(PIIDetection(
             start=match.start(), end=match.end(),
             original=match.group(), pii_type="EMAIL",
-        ))
-
-    # ── 1b. Full name detection (two consecutive Capitalized words) ──
-    for match in FULL_NAME_PATTERN.finditer(text):
-        full = match.group().strip()
-        full_lower = full.lower()
-        # Skip known non-name bigrams
-        if full_lower in _FULL_NAME_IGNORE:
-            continue
-        # Skip if overlaps with already-detected regex PII
-        if _overlaps(match.start(), match.end(), detections):
-            continue
-        detections.append(PIIDetection(
-            start=match.start(), end=match.end(),
-            original=full, pii_type="FULL_NAME",
         ))
 
     # ── 2. spaCy NER-based detection ──

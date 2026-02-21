@@ -185,13 +185,14 @@ async def geocode_address(
             log.info("  [GEO] no country — searching '%s' in CIS", city_s)
             return await _search_city_in_cis(city_s, db)
         else:
-            # No country, no city → all null
+            # No country, no city → unknown
             log.info("  [GEO] no country, no city → null coords")
             return GeocodingResult(
                 latitude=None,
                 longitude=None,
                 provider="no_address",
                 address_status="unknown",
+                explanation="Координаты не определены: страна и населённый пункт не указаны",
             )
 
     # ── RULE 2: COUNTRY PRESENT ──
@@ -201,12 +202,14 @@ async def geocode_address(
     if not _is_kazakhstan(country_s):
         _unknown_counter += 1
         coords = ASTANA_COORDS if _unknown_counter % 2 == 0 else ALMATY_COORDS
+        city_name = "Астана" if _unknown_counter % 2 == 0 else "Алматы"
         log.info("  [GEO] international '%s' → 50/50 Almaty/Astana", country_s)
         return GeocodingResult(
             latitude=coords[0],
             longitude=coords[1],
             provider="international_5050",
             address_status="foreign",
+            explanation=f"Иностранный адрес ({country_s}): маршрутизация в ближайший офис {city_name}",
         )
 
     # Kazakhstan — cascade: country → city → street → house
@@ -220,17 +223,20 @@ async def geocode_address(
             longitude=coords[1],
             provider="capital_fallback",
             address_status="partial",
+            explanation="Населённый пункт не указан — использованы координаты столицы (Астана)",
         )
 
     if not street_s:
         # Country + city, no street → center of city
         log.info("  [GEO] KZ + city '%s', no street → city center", city_s)
-        return await _geocode_city_center(country_s, region_s, city_s, db)
+        return await _geocode_city_center(country_s, region_s, city_s, db,
+            explanation=f"Улица не указана — использован центр города {city_s}")
 
     if not house_s:
         # Country + city + street, no house → center of city
         log.info("  [GEO] KZ + city + street, no house → city center")
-        return await _geocode_city_center(country_s, region_s, city_s, db)
+        return await _geocode_city_center(country_s, region_s, city_s, db,
+            explanation=f"Номер дома не указан — использован центр города {city_s}")
 
     # Full address: country + city + street + house → precise geocode
     log.info("  [GEO] full KZ address → precise geocode")
@@ -253,6 +259,8 @@ async def _search_city_in_cis(
         if db:
             cached = await _check_cache(cache_key, db)
             if cached:
+                if not cached.explanation:
+                    cached.explanation = f"Страна не указана — город {city} найден в {cis_country}"
                 return cached
 
         coords = await _geocode_nominatim(query)
@@ -264,6 +272,7 @@ async def _search_city_in_cis(
                 longitude=coords[1],
                 provider="nominatim_cis",
                 address_status="partial",
+                explanation=f"Страна не указана — город {city} найден в {cis_country}",
             )
 
     # Could not find city in any CIS country → null
@@ -273,6 +282,7 @@ async def _search_city_in_cis(
         longitude=None,
         provider="cis_search_failed",
         address_status="unknown",
+        explanation=f"Координаты не определены: город {city} не найден в странах СНГ",
     )
 
 
@@ -281,12 +291,15 @@ async def _geocode_city_center(
     region: str | None,
     city: str,
     db: AsyncSession | None = None,
+    explanation: str | None = None,
 ) -> GeocodingResult:
     """Geocode to the center of a city."""
     query = _build_address_string(country, region, city, None, None)
     if db:
         cached = await _check_cache(query, db)
         if cached:
+            if explanation and not cached.explanation:
+                cached.explanation = explanation
             return cached
 
     # Try 2GIS first for KZ
@@ -304,17 +317,20 @@ async def _geocode_city_center(
             longitude=coords[1],
             provider=f"{provider}_city",
             address_status="partial",
+            explanation=explanation or f"Использован центр города {city}",
         )
 
     # City geocoding failed → 50/50 Astana/Almaty
     global _unknown_counter
     _unknown_counter += 1
     fallback = ASTANA_COORDS if _unknown_counter % 2 == 0 else ALMATY_COORDS
+    city_name = "Астана" if _unknown_counter % 2 == 0 else "Алматы"
     return GeocodingResult(
         latitude=fallback[0],
         longitude=fallback[1],
         provider="city_geocode_failed",
         address_status="unknown",
+        explanation=f"Координаты не определены: город {city} не найден — назначен офис {city_name}",
     )
 
 
@@ -341,6 +357,7 @@ async def _geocode_full(
             longitude=coords[1],
             provider="2gis",
             address_status="resolved",
+            explanation=f"Точный адрес геокодирован через 2GIS",
         )
 
     # Nominatim fallback
@@ -353,11 +370,13 @@ async def _geocode_full(
             longitude=coords[1],
             provider="nominatim",
             address_status="resolved",
+            explanation=f"Точный адрес геокодирован через Nominatim (2GIS не нашёл)",
         )
 
     # Both failed → fall back to city center
     log.warning("  [GEO] full geocode failed → trying city center")
-    return await _geocode_city_center(country, region, city, db)
+    return await _geocode_city_center(country, region, city, db,
+        explanation=f"Точный адрес не найден — использован центр города {city}")
 
 
 # ── Cache helpers ──
@@ -431,6 +450,7 @@ async def geocode_ticket(
         ticket.latitude = result.latitude
         ticket.longitude = result.longitude
         ticket.address_status = result.address_status
+        ticket.geo_explanation = result.explanation
         if result.latitude and result.longitude:
             ticket.geo_point = f"SRID=4326;POINT({result.longitude} {result.latitude})"
 
@@ -452,6 +472,7 @@ async def geocode_ticket(
                 "longitude": result.longitude,
                 "provider": result.provider,
                 "address_status": result.address_status,
+                "geo_explanation": result.explanation,
             },
         )
 
@@ -471,4 +492,5 @@ async def geocode_ticket(
             message=str(e),
         )
 
-        return GeocodingResult(address_status="unknown")
+        return GeocodingResult(address_status="unknown",
+                              explanation=f"Ошибка геокодирования: {str(e)}")

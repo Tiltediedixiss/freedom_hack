@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_MODEL: str = "google/gemini-2.0-flash-001"
-    OPENROUTER_SENTIMENT_MODEL: str = "google/gemini-2.0-flash-001"
+    OPENROUTER_SENTIMENT_MODEL: str = "google/gemma-3-4b-it"
 
     # ── 2GIS Geocoding ──
     TWOGIS_API_KEY: str = ""
