@@ -7,7 +7,6 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings
 
-# Project root .env (so it works when running from backend/ or project root)
 _ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 _ENV_FILE = os.path.join(_ROOT_DIR, ".env")
 
@@ -21,11 +20,6 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_MODEL: str = "google/gemini-2.0-flash-001"
-    OPENROUTER_SENTIMENT_MODEL: str = "google/gemini-2.0-flash-001"
-
-    # ── Groq (optional; used for sentiment when set) ──
-    GROQ_API_KEY: str = ""
-    GROQ_SENTIMENT_MODEL: str = "llama3-8b-8192"
 
     # ── 2GIS Geocoding ──
     TWOGIS_API_KEY: str = ""
@@ -44,10 +38,21 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "/app/uploads"
     MAX_UPLOAD_SIZE_MB: int = 50
 
+    # ── Business rules ──
+    EXPANSION_COUNTRIES: list[str] = [
+        "Pakistan", "United States", "Lithuania", "Netherlands",
+        "Austria", "Bulgaria", "United Arab Emirates", "Turkey",
+    ]
+
+    TURKIC_LANGUAGES: list[str] = [
+        "uzbek", "turkish", "kyrgyz", "turkmen", "azerbaijani",
+        "uyghur", "tatar", "bashkir", "karakalpak",
+    ]
+
     class Config:
         env_file = _ENV_FILE
         case_sensitive = True
-        extra = "ignore"  # allow extra .env vars (e.g. POSTGRES_* for docker-compose)
+        extra = "ignore"
 
 
 @lru_cache()
