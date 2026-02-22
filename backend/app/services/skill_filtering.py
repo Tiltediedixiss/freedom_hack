@@ -61,7 +61,7 @@ def _apply_filters(
         result = [m for m in result if "VIP" in (m.get("skills") or [])]
 
     if "position" in requirements:
-        result = [m for m in result if m.get("position") == "Глав спец"]
+        result = [m for m in result if m.get("position") == "Главный специалист"]
 
     if "language" in requirements:
         result = [m for m in result if language_label in (m.get("skills") or [])]
@@ -72,6 +72,6 @@ def _apply_filters(
 def _relaxation_label(req: str) -> str:
     return {
         "language": "язык (KZ/ENG)",
-        "position": "должность (Глав спец)",
+        "position": "должность (Главный специалист)",
         "vip": "навык VIP",
     }.get(req, req)

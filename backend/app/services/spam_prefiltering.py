@@ -1,3 +1,9 @@
+"""
+Step 3: SPAM prefiltering
+Identifies spam and marks it to make sure that we save the time and compute and not label spam tickets in the later steps
+
+- Uses a lightweight, fast LLM to preprocess each row to detect SPAM tickets
+"""
 import re
 import httpx
 import logging
@@ -5,17 +11,15 @@ from dataclasses import dataclass
 
 from app.core.config import get_settings
 
-log = logging.getLogger("pipeline.spam")
+log = logging.getLogger("fire.spam")
 
 SPAM_MODEL = "meta-llama/llama-3.1-8b-instruct"
 
-SPAM_PROMPT = """You are a spam classifier for a financial broker's support system. 
+SPAM_PROMPT = """You are a spam classifier for a financial broker's support system.
 Classify the following customer ticket as SPAM or NOT_SPAM.
 
-SPAM means: advertising, promotional offers, product sales, unsolicited marketing, irrelevant commercial content.
-NOT_SPAM means: any actual customer request, complaint, question, claim — even if short, angry, or poorly written.
-
-IMPORTANT: Short angry messages like "ВЕРНИТЕ 500$!!!" are NOT spam. Legitimate complaints are NOT spam.
+SPAM means: advertising, promotional offers, product sales, unsolicited marketing, irrelevant commercial content, event invitations not related to the client's account.
+NOT_SPAM means: any actual customer request, complaint, question, claim — even if short, angry, or poorly written. Even a single word like "Help" is NOT spam.
 
 Ticket text:
 ---
@@ -27,9 +31,10 @@ Respond with exactly one word: SPAM or NOT_SPAM"""
 _URL_RE = re.compile(r'https?://\S+|www\.\S+', re.IGNORECASE)
 _INVISIBLE_RE = re.compile(r'[\u2800-\u28FF\u200B\u200C\u200D\uFEFF]')
 _PROMO_RE = re.compile(
-    r'скидк|акци[яи]|промокод|распродаж|бесплатн|предложени|'
+    r'скидк|акци[яи]|промокод|распродаж|бесплатн|предложени[еяй]|'
     r'sale|discount|promo|free offer|buy now|limited time|'
-    r'реклам|оптов|со склад|выгодное предложение|специальные цены|',
+    r'реклам|оптов|со склад|выгодное предложение|специальные цены|'
+    r'минимальный заказ|день инвестора|дайджест',
     re.IGNORECASE,
 )
 
@@ -43,11 +48,9 @@ class SpamResult:
 
 def _structural_check(text: str) -> SpamResult | None:
     if not text or not text.strip():
-        return SpamResult(True, 1.0, "Empty body")
+        return SpamResult(False, 0.0, "Empty body — not spam (may have attachment)")
 
     stripped = text.strip()
-    if len(stripped) < 3:
-        return SpamResult(True, 1.0, f"Too short ({len(stripped)} chars)")
 
     invisible_count = len(_INVISIBLE_RE.findall(stripped))
     url_count = len(_URL_RE.findall(stripped))
@@ -56,11 +59,14 @@ def _structural_check(text: str) -> SpamResult | None:
     if invisible_count > 10 and url_count >= 1:
         return SpamResult(True, 0.99, f"Invisible chars ({invisible_count}) + URL — structural spam")
 
-    if promo_count >= 3 and url_count >= 1:
+    if promo_count >= 2 and url_count >= 1:
         return SpamResult(True, 0.95, f"Promo keywords ({promo_count}) + URL — structural spam")
 
     if invisible_count > 30:
         return SpamResult(True, 0.95, f"Excessive invisible chars ({invisible_count}) — structural spam")
+
+    if promo_count >= 3:
+        return SpamResult(True, 0.90, f"Heavy promo keywords ({promo_count}) — structural spam")
 
     return None
 
@@ -100,27 +106,21 @@ async def _llm_check(text: str) -> SpamResult:
         return SpamResult(False, 0.0, f"LLM error: {e} — defaulting to not spam")
 
 
-async def detect_spam(text: str) -> SpamResult:
-    structural = _structural_check(text)
-    if structural:
-        return structural
-
-    return await _llm_check(text)
-
-
 def detect_spam_sync(text: str) -> SpamResult:
     structural = _structural_check(text)
     if structural:
         return structural
 
-    import httpx as httpx_sync
     settings = get_settings()
     cleaned = _URL_RE.sub('[URL]', text)
     cleaned = _INVISIBLE_RE.sub('', cleaned)
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()[:500]
 
+    if len(cleaned) < 5:
+        return SpamResult(False, 0.0, "Too short for LLM — not spam")
+
     try:
-        resp = httpx_sync.post(
+        resp = httpx.post(
             f"{settings.OPENROUTER_BASE_URL}/chat/completions",
             headers={
                 "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
@@ -137,10 +137,29 @@ def detect_spam_sync(text: str) -> SpamResult:
         resp.raise_for_status()
         answer = resp.json()["choices"][0]["message"]["content"].strip().upper()
         is_spam = "SPAM" in answer and "NOT" not in answer
-        return SpamResult(is_spam=is_spam, probability=0.85 if is_spam else 0.15, reason=f"LLM: {answer}")
+        return SpamResult(
+            is_spam=is_spam,
+            probability=0.85 if is_spam else 0.15,
+            reason=f"LLM ({SPAM_MODEL}): {answer}",
+        )
     except Exception as e:
         log.warning("Spam LLM call failed: %s", e)
         return SpamResult(False, 0.0, f"LLM error — defaulting to not spam")
+
+
+async def detect_spam(text: str) -> SpamResult:
+    structural = _structural_check(text)
+    if structural:
+        return structural
+
+    cleaned = _URL_RE.sub('[URL]', text)
+    cleaned = _INVISIBLE_RE.sub('', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()[:500]
+
+    if len(cleaned) < 5:
+        return SpamResult(False, 0.0, "Too short for LLM — not spam")
+
+    return await _llm_check(text)
 
 
 SPAM_TICKET_DEFAULTS = {
@@ -148,12 +167,7 @@ SPAM_TICKET_DEFAULTS = {
     "sentiment": "Нейтральный",
     "sentiment_confidence": 0.0,
     "language_label": "RU",
-    "language_actual": None,
-    "language_is_mixed": False,
-    "language_note": "Spam — language detection skipped",
-    "summary": "Тикет классифицирован как спам и исключён из маршрутизации.",
-    "attachment_analysis": None,
-    "priority_final": 1.0,
+    "summary": "Тикет классифицирован как спам и исключён из раутинга.",
     "is_spam": True,
 }
 
@@ -162,12 +176,26 @@ def fill_spam_ticket(ticket: dict, result: SpamResult) -> dict:
     ticket.update(SPAM_TICKET_DEFAULTS)
     ticket["spam_probability"] = result.probability
     ticket["spam_reason"] = result.reason
+    ticket["priority"] = 1.0
     ticket["priority_breakdown"] = {
         "segment": 0, "type": 0, "sentiment": 0, "age": 0,
         "repeat_client": 0, "base_total": 0,
         "extra_expansion": 0, "extra_young_vip": 0,
         "extra_fifo": 0, "extra_total": 0,
         "fraud_floor_applied": False, "final": 1.0,
-        "note": f"Spam — skipped scoring. Reason: {result.reason}",
+        "note": f"Spam — skipped scoring. {result.reason}",
     }
+    return ticket
+
+
+def check_spam_ticket(ticket: dict) -> dict:
+    text = ticket.get("description") or ""
+    result = _structural_check(text)
+    if result is None:
+        result = detect_spam_sync(text)
+    ticket["is_spam"] = result.is_spam
+    ticket["spam_probability"] = result.probability
+    ticket["spam_reason"] = result.reason
+    if result.is_spam:
+        fill_spam_ticket(ticket, result)
     return ticket
