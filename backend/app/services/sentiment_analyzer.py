@@ -1,12 +1,14 @@
 """
-T6 — Sentiment Analysis via OpenRouter.
+T6 — Sentiment Analysis via OpenRouter or Groq.
 
 Runs in PARALLEL with T5 (Main LLM) and T7 (Geocoding).
 Separate, focused model call for sentiment detection.
+Uses Groq (llama3-8b-8192) when GROQ_API_KEY is set; otherwise OpenRouter.
 
-Output: sentiment (Позитивный/Нейтральный/Негативный) + confidence score.
+Output: sentiment (позитивный/нейтральный/негативный) + confidence score.
 """
 
+import asyncio
 import json
 import time
 import uuid
@@ -25,7 +27,14 @@ from app.models.schemas import SentimentResult
 
 settings = get_settings()
 
-SENTIMENT_PROMPT = """Analyze the sentiment of this customer support ticket for a financial broker.
+# English -> Russian (our stored enum values)
+_GROQ_TO_SENTIMENT = {
+    "positive": SentimentEnum.позитивный.value,
+    "neutral": SentimentEnum.нейтральный.value,
+    "negative": SentimentEnum.негативный.value,
+}
+
+SENTIMENT_PROMPT_OPENROUTER = """Analyze the sentiment of this customer support ticket for a financial broker.
 
 TICKET TEXT:
 {ticket_text}
@@ -47,16 +56,42 @@ Return ONLY valid JSON:
   "confidence": 0.0-1.0
 }}"""
 
+SENTIMENT_PROMPT_GROQ = """Analyze the sentiment of the following support ticket.
+Respond strictly in JSON with "sentiment" (value "positive", "neutral", or "negative") and "confidence" (0.0-1.0).
 
-async def analyze_sentiment(ticket_text: str) -> SentimentResult:
-    """
-    Call OpenRouter sentiment model.
-    Returns sentiment enum + confidence.
-    """
-    prompt = SENTIMENT_PROMPT.format(
+Ticket:
+{ticket_text}"""
+
+
+def _analyze_sentiment_groq_sync(ticket_text: str) -> dict:
+    """Synchronous Groq call (run in thread from async)."""
+    from groq import Groq
+    client = Groq(api_key=settings.GROQ_API_KEY)
+    prompt = SENTIMENT_PROMPT_GROQ.format(ticket_text=ticket_text or "(empty ticket body)")
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": prompt}],
+        model=settings.GROQ_SENTIMENT_MODEL,
+        temperature=0,
+        response_format={"type": "json_object"},
+    )
+    return json.loads(response.choices[0].message.content)
+
+
+async def _analyze_sentiment_groq(ticket_text: str) -> SentimentResult:
+    """Run Groq sentiment in thread; map English -> Russian and normalize."""
+    raw = await asyncio.to_thread(_analyze_sentiment_groq_sync, ticket_text)
+    sentiment_en = (raw.get("sentiment") or "neutral").strip().lower()
+    sentiment = _GROQ_TO_SENTIMENT.get(sentiment_en, SentimentEnum.нейтральный.value)
+    confidence = float(raw.get("confidence", 0.9))
+    confidence = max(0.0, min(1.0, confidence))
+    return SentimentResult(sentiment=sentiment, confidence=confidence)
+
+
+async def _analyze_sentiment_openrouter(ticket_text: str) -> SentimentResult:
+    """OpenRouter sentiment (existing logic)."""
+    prompt = SENTIMENT_PROMPT_OPENROUTER.format(
         ticket_text=ticket_text or "(empty ticket body)"
     )
-
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{settings.OPENROUTER_BASE_URL}/chat/completions",
@@ -76,20 +111,29 @@ async def analyze_sentiment(ticket_text: str) -> SentimentResult:
             },
         )
         response.raise_for_status()
-        data = response.json()
+        data= response.json()
 
     content = data["choices"][0]["message"]["content"]
     result = json.loads(content)
-
     sentiment = result.get("sentiment", "нейтральный")
     valid_sentiments = [s.value for s in SentimentEnum]
     if sentiment not in valid_sentiments:
         sentiment = "нейтральный"
-
     return SentimentResult(
         sentiment=sentiment,
         confidence=float(result.get("confidence", 0.5)),
     )
+
+
+async def analyze_sentiment(ticket_text: str) -> SentimentResult:
+    """
+    Call sentiment model. Uses Groq when GROQ_API_KEY is set in .env; otherwise OpenRouter.
+    Returns sentiment (позитивный/нейтральный/негативный) + confidence.
+    """
+    s = get_settings()
+    if s.GROQ_API_KEY and s.GROQ_API_KEY.strip():
+        return await _analyze_sentiment_groq(ticket_text)
+    return await _analyze_sentiment_openrouter(ticket_text)
 
 
 async def analyze_sentiment_db(
