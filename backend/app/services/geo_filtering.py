@@ -152,12 +152,18 @@ async def get_candidate_managers(
 
     for m in managers:
         bu = m.business_unit
-        if bu is None or bu.latitude is None or bu.longitude is None:
+        if bu is None:
             continue
-        dist = _haversine(
-            float(ticket.latitude), float(ticket.longitude),
-            float(bu.latitude), float(bu.longitude),
-        )
+        lat, lon = None, None
+        if bu.latitude is not None and bu.longitude is not None:
+            lat, lon = float(bu.latitude), float(bu.longitude)
+        else:
+            coords = get_office_coords(bu.name) if bu.name else None
+            if coords:
+                lat, lon = coords[0], coords[1]
+        if lat is None or lon is None:
+            continue
+        dist = _haversine(float(ticket.latitude), float(ticket.longitude), lat, lon)
         if dist <= max_km:
             candidates.append(ManagerCandidate(
                 manager=m,
