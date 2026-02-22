@@ -2,6 +2,14 @@ import math
 import csv
 import os
 import logging
+from dataclasses import dataclass
+from typing import Optional
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.models import Assignment, BusinessUnit, Manager, Ticket
 
 log = logging.getLogger("pipeline.geo_filter")
 
@@ -104,3 +112,80 @@ def filter_by_geo(ticket: dict, managers: list[dict]) -> list[dict]:
     )
 
     return eligible
+
+
+@dataclass
+class ManagerCandidate:
+    """Single candidate for routing: manager, their office, and distance to ticket."""
+    manager: Manager
+    business_unit: Optional[BusinessUnit]
+    distance_km: float
+    office_name: Optional[str]
+
+
+async def get_candidate_managers(
+    ticket: Ticket,
+    db: AsyncSession,
+    max_km: float = 500.0,
+) -> list[ManagerCandidate]:
+    """
+    Load active managers with business units, compute distance from ticket coords,
+    filter by max_km, return sorted by distance (nearest first).
+    """
+    if ticket.latitude is None or ticket.longitude is None:
+        return []
+
+    result = await db.execute(
+        select(Manager)
+        .where(Manager.is_active == True)
+        .options(selectinload(Manager.business_unit))
+    )
+    managers = list(result.scalars().all())
+    candidates: list[ManagerCandidate] = []
+
+    for m in managers:
+        bu = m.business_unit
+        if bu is None or bu.latitude is None or bu.longitude is None:
+            continue
+        dist = _haversine(
+            float(ticket.latitude), float(ticket.longitude),
+            float(bu.latitude), float(bu.longitude),
+        )
+        if dist <= max_km:
+            candidates.append(ManagerCandidate(
+                manager=m,
+                business_unit=bu,
+                distance_km=round(dist, 1),
+                office_name=bu.name,
+            ))
+
+    candidates.sort(key=lambda c: c.distance_km)
+    return candidates
+
+
+async def assign_ticket_to_nearest(
+    ticket: Ticket,
+    db: AsyncSession,
+    batch_id: Optional[str] = None,
+) -> Optional[Assignment]:
+    """
+    Find nearest manager by office coords, create Assignment, set ticket.assigned_manager_id.
+    """
+    candidates = await get_candidate_managers(ticket, db, max_km=500.0)
+    if not candidates:
+        return None
+
+    nearest = candidates[0]
+    assignment = Assignment(
+        ticket_id=ticket.id,
+        manager_id=nearest.manager.id,
+        business_unit_id=nearest.business_unit.id if nearest.business_unit else None,
+        explanation="Ближайший офис по координатам тикета",
+        routing_details={
+            "distance_km": nearest.distance_km,
+            "office_name": nearest.office_name or (nearest.business_unit.name if nearest.business_unit else None),
+        },
+    )
+    db.add(assignment)
+    ticket.assigned_manager_id = nearest.manager.id
+    return assignment

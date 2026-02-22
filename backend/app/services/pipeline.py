@@ -27,12 +27,12 @@ from app.models.models import (
     PIIMapping, ProcessingState, ProcessingStageEnum, StageStatusEnum,
 )
 from app.models.schemas import LLMAnalysisResult, GeocodingResult, SentimentResult
-from backend.app.services.spam_prefiltering import check_spam
-from backend.app.services.personal_data_masking import anonymize_ticket, rehydrate_text
-from backend.app.services.llm_processing import analyze_ticket as llm_analyze_api
+from app.services.spam_prefiltering import check_spam
+from app.services.personal_data_masking import anonymize_ticket, rehydrate_text
+from app.services.llm_processing import analyze_ticket as llm_analyze_api
 from app.services.sentiment_analyzer import analyze_sentiment as sentiment_analyze_api
 from app.services.geocoder import geocode_address
-from backend.app.services.geo_filtering import assign_ticket_to_nearest
+from app.services.geo_filtering import assign_ticket_to_nearest
 
 log = logging.getLogger("pipeline")
 

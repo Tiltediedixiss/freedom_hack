@@ -8,6 +8,9 @@ import re
 import httpx
 import logging
 from dataclasses import dataclass
+from typing import Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 
@@ -160,6 +163,22 @@ async def detect_spam(text: str) -> SpamResult:
         return SpamResult(False, 0.0, "Too short for LLM — not spam")
 
     return await _llm_check(text)
+
+
+async def check_spam(
+    db: AsyncSession,
+    ticket: "Ticket",
+    batch_id: Optional[str] = None,
+) -> SpamResult:
+    """
+    Run spam detection on a ticket's text, update ticket.is_spam and ticket.spam_probability.
+    Used by the pipeline (T4).
+    """
+    text = (getattr(ticket, "description_anonymized", None) or getattr(ticket, "description", None) or "").strip()
+    result = await detect_spam(text or "")
+    ticket.is_spam = result.is_spam
+    ticket.spam_probability = result.probability
+    return result
 
 
 SPAM_TICKET_DEFAULTS = {

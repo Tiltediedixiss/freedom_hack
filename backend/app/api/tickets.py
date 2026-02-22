@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from backend.app.services.geo_filtering import get_candidate_managers
+from app.services.geo_filtering import get_candidate_managers
 from app.models.models import (
     AIAnalysis, Assignment, BatchUpload, BusinessUnit,
     Manager, PIIMapping, Ticket,
