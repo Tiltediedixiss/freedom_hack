@@ -175,6 +175,7 @@ async def anonymize_ticket(
         data={
             "pii_count": len(result.detections),
             "types": list(set(d.pii_type for d in result.detections)),
+            "csv_row_index": getattr(ticket, "csv_row_index", None),
         },
     )
 

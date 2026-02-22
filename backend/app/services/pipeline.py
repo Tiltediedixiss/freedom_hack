@@ -22,6 +22,7 @@ from app.services.geocoder import geocode_ticket, geocode_batch
 from app.services.priority import score_batch
 from app.services.routing import route_batch
 from app.services.geo_filtering import assign_ticket_to_nearest
+from app.core.sse_manager import sse_manager
 
 log = logging.getLogger("fire.pipeline")
 
@@ -63,13 +64,44 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
     if not tickets:
         return {"message": "No ingested tickets to process", "processed": 0}
 
+    await sse_manager.send_update(
+        ticket_id=uuid.UUID(int=0),
+        batch_id=batch_id,
+        stage="pipeline",
+        status="in_progress",
+        message=f"Обработка {len(tickets)} обращений",
+        data={"total": len(tickets), "processed": 0, "spam": 0},
+    )
+
     processed = 0
+    spam_count = 0
     for ticket in tickets:
         try:
             spam_result = await check_spam(db, ticket, str(batch_id))
             if spam_result.is_spam:
+                spam_count += 1
                 ticket.status = TicketStatusEnum.enriched
                 await db.flush()
+                await sse_manager.send_update(
+                    ticket_id=ticket.id,
+                    batch_id=batch_id,
+                    stage="spam_filter",
+                    status="completed",
+                    message="Спам обнаружен",
+                    data={
+                        "is_spam": True,
+                        "reason": getattr(spam_result, "reason", None),
+                        "csv_row_index": getattr(ticket, "csv_row_index", None),
+                    },
+                )
+                await sse_manager.send_update(
+                    ticket_id=ticket.id,
+                    batch_id=batch_id,
+                    stage="enrichment",
+                    status="completed",
+                    message="Пропущен (спам)",
+                    data={"skipped": True, "is_spam": True},
+                )
                 processed += 1
                 continue
 
@@ -93,11 +125,19 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
                 geocode_ticket(dict(t_dict)),
                 return_exceptions=True,
             )
+            llm_data = {}
             if isinstance(llm_result, Exception):
                 log.warning("LLM failed for ticket %s: %s", ticket.id, llm_result)
+                llm_data = {"error": str(llm_result), "type": "Консультация", "sentiment": "Нейтральный"}
             else:
                 type_str = (llm_result.get("type") or "Консультация").strip().lower()
                 sentiment_str = (llm_result.get("sentiment") or "Нейтральный").strip().lower()
+                llm_data = {
+                    "type": llm_result.get("type") or "Консультация",
+                    "sentiment": llm_result.get("sentiment") or "Нейтральный",
+                    "summary": llm_result.get("summary"),
+                    "sentiment_confidence": float(llm_result.get("sentiment_confidence", 0.5)),
+                }
                 ai = AIAnalysis(
                     ticket_id=ticket.id,
                     detected_type=_LLM_TYPE_TO_ENUM.get(type_str, TicketTypeEnum.консультация),
@@ -106,20 +146,66 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
                     sentiment_confidence=float(llm_result.get("sentiment_confidence", 0.5)),
                 )
                 db.add(ai)
+            await sse_manager.send_update(
+                ticket_id=ticket.id,
+                batch_id=batch_id,
+                stage="llm_analysis",
+                status="completed",
+                message="Анализ выполнен",
+                data=llm_data,
+            )
+
+            geo_data = {}
             if isinstance(geo_result, Exception):
                 log.warning("Geocode failed for ticket %s: %s", ticket.id, geo_result)
+                geo_data = {"error": str(geo_result)}
             else:
                 ticket.latitude = geo_result.get("latitude")
                 ticket.longitude = geo_result.get("longitude")
                 ticket.geo_explanation = geo_result.get("geo_explanation")
+                geo_data = {
+                    "latitude": geo_result.get("latitude"),
+                    "longitude": geo_result.get("longitude"),
+                    "geo_explanation": geo_result.get("geo_explanation"),
+                }
+            await sse_manager.send_update(
+                ticket_id=ticket.id,
+                batch_id=batch_id,
+                stage="geocoding",
+                status="completed",
+                message="Геокодирование выполнено" if not isinstance(geo_result, Exception) else "Ошибка геокодирования",
+                data=geo_data,
+            )
 
             ticket.status = TicketStatusEnum.enriched
             await assign_ticket_to_nearest(ticket, db, str(batch_id))
             await db.flush()
+            await sse_manager.send_update(
+                ticket_id=ticket.id,
+                batch_id=batch_id,
+                stage="enrichment",
+                status="completed",
+                message="Обогащение завершено",
+                data={
+                    "type": llm_data.get("type"),
+                    "sentiment": llm_data.get("sentiment"),
+                    "summary": llm_data.get("summary"),
+                    "latitude": geo_data.get("latitude"),
+                    "longitude": geo_data.get("longitude"),
+                },
+            )
             processed += 1
         except Exception as e:
             log.exception("Pipeline failed for ticket %s: %s", ticket.id, e)
 
+    await sse_manager.send_update(
+        ticket_id=uuid.UUID(int=0),
+        batch_id=batch_id,
+        stage="pipeline",
+        status="completed",
+        message=f"Обработано {processed} из {len(tickets)}",
+        data={"total": len(tickets), "processed": processed, "spam": spam_count, "enriched": processed - spam_count},
+    )
     return {"processed": processed, "total": len(tickets)}
 
 

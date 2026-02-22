@@ -12,15 +12,32 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+const UPLOAD_TIMEOUT_MS = 120_000 
+
 async function uploadFile<T>(path: string, file: File, fieldName = "file"): Promise<T> {
   const form = new FormData()
   form.append(fieldName, file)
-  const res = await fetch(`${API_BASE}${path}`, { method: "POST", body: form })
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Upload ${res.status}: ${body}`)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS)
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`Upload ${res.status}: ${body}`)
+    }
+    return res.json()
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error("Загрузка превысила время ожидания (2 мин). Проверьте размер файла и бэкенд.")
+    }
+    throw e
+  } finally {
+    clearTimeout(timeoutId)
   }
-  return res.json()
 }
 
 // ── Ingestion ──

@@ -6,6 +6,7 @@ import io
 import re
 import csv
 import logging
+import time
 import uuid
 from datetime import datetime, date
 from collections import Counter
@@ -53,10 +54,19 @@ def _read_csv(path: str) -> pd.DataFrame:
 
 
 def _read_csv_from_bytes(contents: bytes) -> pd.DataFrame:
+    t0 = time.perf_counter()
+    log.info("[CSV] _read_csv_from_bytes: %d bytes, detecting encoding...", len(contents))
     enc = chardet.detect(contents).get("encoding") or "utf-8"
+    t1 = time.perf_counter()
+    log.info("[CSV] _read_csv_from_bytes: encoding=%s (%.2fs), decoding...", enc, t1 - t0)
     text = contents.decode(enc, errors="replace")
+    t2 = time.perf_counter()
+    log.info("[CSV] _read_csv_from_bytes: decoded %d chars (%.2fs), pandas read_csv...", len(text), t2 - t1)
     df = pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False)
+    t3 = time.perf_counter()
+    log.info("[CSV] _read_csv_from_bytes: pandas done, %d rows x %d cols (%.2fs)", len(df), len(df.columns), t3 - t2)
     df.columns = [c.strip() for c in df.columns]
+    log.info("[CSV] _read_csv_from_bytes: total %.2fs", t3 - t0)
     return df
 
 
@@ -223,6 +233,8 @@ def parse_managers(path: str | None = None, data: bytes | None = None) -> list[d
 
 
 def parse_tickets(path: str | None = None, data: bytes | None = None) -> list[dict]:
+    t0 = time.perf_counter()
+    log.info("[CSV] parse_tickets: start")
     if data is not None:
         df = _read_csv_from_bytes(data)
     elif path:
@@ -230,6 +242,8 @@ def parse_tickets(path: str | None = None, data: bytes | None = None) -> list[di
     else:
         raise ValueError("Either path or data must be provided")
 
+    t1 = time.perf_counter()
+    log.info("[CSV] parse_tickets: df loaded (%.2fs), building col_map...", t1 - t0)
     col_map = {}
     for col in df.columns:
         c = col.lower()
@@ -262,6 +276,8 @@ def parse_tickets(path: str | None = None, data: bytes | None = None) -> list[di
     if guid_series is not None:
         guid_counts = dict(Counter(guid_series.str.strip()))
 
+    t2 = time.perf_counter()
+    log.info("[CSV] parse_tickets: col_map done, iterating %d rows...", len(df))
     tickets = []
     for idx, row in df.iterrows():
         guid = _clean(row.get("guid"))
@@ -307,8 +323,14 @@ def parse_tickets(path: str | None = None, data: bytes | None = None) -> list[di
             "assigned_office": None,
             "routing_explanation": None,
         })
+        if (idx + 1) % 10 == 0 or idx == 0:
+            log.info("[CSV] parse_tickets: row %d/%d", idx + 1, len(df))
 
-    log.info("Parsed %d tickets", len(tickets))
+    t3 = time.perf_counter()
+    elapsed = t3 - t2
+    rate = len(df) / elapsed if elapsed > 0 and len(df) > 0 else 0
+    log.info("[CSV] parse_tickets: iterrows loop done in %.2fs (%.0f rows/s)", elapsed, rate)
+    log.info("[CSV] parse_tickets: total %.2fs, parsed %d tickets", t3 - t0, len(tickets))
     return tickets
 
 
@@ -393,8 +415,12 @@ async def ingest_tickets_csv(
     filename: str,
 ) -> dict:
     """Parse tickets CSV from bytes, insert into DB, create BatchUpload. Returns batch_id, total_rows, processed_rows, failed_rows, errors."""
+    t0 = time.perf_counter()
+    log.info("[INGEST] ingest_tickets_csv: start, %d bytes", len(contents))
     errors: list[str] = []
     tickets_data = parse_tickets(data=contents)
+    t1 = time.perf_counter()
+    log.info("[INGEST] ingest_tickets_csv: parse_tickets done in %.2fs (%d rows)", t1 - t0, len(tickets_data))
     batch = BatchUpload(
         filename=filename,
         total_rows=len(tickets_data),
@@ -405,6 +431,8 @@ async def ingest_tickets_csv(
     )
     db.add(batch)
     await db.flush()
+    t2 = time.perf_counter()
+    log.info("[INGEST] ingest_tickets_csv: batch created, inserting %d tickets...", len(tickets_data))
     processed = 0
     failed = 0
     for row in tickets_data:
@@ -423,7 +451,7 @@ async def ingest_tickets_csv(
                 guid=_clean(row.get("guid")),
                 gender=_clean(row.get("gender")),
                 birth_date=birth_date,
-                age=row.get("age"),
+                age=_safe_int(row.get("age")) if row.get("age") is not None else None,
                 description=_clean(row.get("description")),
                 attachments=attachments,
                 segment=segment,
@@ -437,14 +465,20 @@ async def ingest_tickets_csv(
             )
             db.add(ticket)
             processed += 1
+            if processed % 10 == 0:
+                log.info("[INGEST] ingest_tickets_csv: inserted %d/%d tickets", processed, len(tickets_data))
         except Exception as e:
             failed += 1
             errors.append(f"Row {row.get('csv_row_index', '?')}: {e}")
+    t3 = time.perf_counter()
+    log.info("[INGEST] ingest_tickets_csv: DB insert loop done in %.2fs (%d processed, %d failed)", t3 - t2, processed, failed)
     batch.processed_rows = processed
     batch.failed_rows = failed
     batch.status = "completed"
     batch.error_log = errors
     await db.flush()
+    t4 = time.perf_counter()
+    log.info("[INGEST] ingest_tickets_csv: total %.2fs (parse=%.2fs, insert=%.2fs)", t4 - t0, t1 - t0, t3 - t2)
     return {
         "batch_id": str(batch.id),
         "total_rows": len(tickets_data),

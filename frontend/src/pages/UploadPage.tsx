@@ -183,8 +183,7 @@ export default function UploadPage({ sse }: UploadPageProps) {
               Готово!
             </CardTitle>
             <CardDescription>
-              Все обращения обработаны. Перейдите в «Поиск» для просмотра результатов или
-              в «Дашборд» для аналитики.
+              Все обращения обработаны. Перейдите в «Поиск» для просмотра результатов.
             </CardDescription>
           </CardHeader>
           <CardContent>

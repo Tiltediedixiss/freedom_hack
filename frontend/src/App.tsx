@@ -1,17 +1,15 @@
 import { Routes, Route, NavLink } from "react-router-dom"
-import { Flame, Upload, Activity, Search, BarChart3 } from "lucide-react"
+import { Flame, Upload, Activity, Search } from "lucide-react"
 import { useSSE } from "@/hooks/useSSE"
 import UploadPage from "@/pages/UploadPage"
 import PipelinePage from "@/pages/PipelinePage"
 import LookupPage from "@/pages/LookupPage"
-import DashboardPage from "@/pages/DashboardPage"
 import { cn } from "@/lib/utils"
 
 const navItems = [
   { to: "/", icon: Upload, label: "Загрузка" },
   { to: "/pipeline", icon: Activity, label: "Конвейер" },
   { to: "/lookup", icon: Search, label: "Поиск" },
-  { to: "/dashboard", icon: BarChart3, label: "Дашборд" },
 ]
 
 export default function App() {
@@ -77,7 +75,6 @@ export default function App() {
           <Route path="/" element={<UploadPage sse={sse} />} />
           <Route path="/pipeline" element={<PipelinePage sse={sse} />} />
           <Route path="/lookup" element={<LookupPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
         </Routes>
       </main>
     </div>

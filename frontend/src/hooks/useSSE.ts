@@ -80,6 +80,10 @@ function updateTicketState(
     }
   }
 
+  if (event.data?.csv_row_index != null) {
+    ticketState.csvRow = event.data.csv_row_index as number
+  }
+
   if (event.stage === "spam_filter" && event.data?.is_spam) {
     ticketState.isSpam = true
     ticketState.isComplete = true

@@ -5,7 +5,13 @@ API routes for CSV data ingestion (T2).
   POST /api/ingest/business-units — upload business_units CSV
 """
 
+import logging
+import time
+import uuid as _uuid
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+
+log = logging.getLogger("app.api.ingest")
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -35,15 +41,29 @@ async def upload_tickets_csv(
 ):
     """Upload tickets CSV for ingestion with feature engineering."""
     _validate_csv(file)
+    t0 = time.perf_counter()
+    log.info("[INGEST] tickets: reading file %s", file.filename)
     contents = await file.read()
+    t1 = time.perf_counter()
+    log.info("[INGEST] tickets: read %d bytes in %.2fs, calling parser...", len(contents), t1 - t0)
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     if len(contents) > max_bytes:
         raise HTTPException(413, f"File too large. Max {settings.MAX_UPLOAD_SIZE_MB}MB.")
 
-    result = await ingest_tickets_csv(db, contents, file.filename)
+    try:
+        result = await ingest_tickets_csv(db, contents, file.filename or "tickets.csv")
+        t2 = time.perf_counter()
+        log.info("[INGEST] tickets: done in %.2fs total, batch_id=%s, processed=%d", t2 - t0, result.get("batch_id"), result.get("processed_rows"))
+    except Exception as e:
+        log.exception("Ingest tickets failed")
+        raise HTTPException(500, detail=f"Upload failed: {str(e)}") from e
+
+    batch_id = result["batch_id"]
+    if isinstance(batch_id, str):
+        batch_id = _uuid.UUID(batch_id)
 
     return IngestTicketsResponse(
-        batch_id=result["batch_id"],
+        batch_id=batch_id,
         total_rows=result["total_rows"],
         processed_rows=result["processed_rows"],
         failed_rows=result["failed_rows"],

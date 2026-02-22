@@ -1,57 +1,38 @@
 import { useEffect, useRef, useMemo } from "react"
-import {
-  ShieldAlert,
-  Eye,
-  Brain,
-  MapPin,
-  Layers,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Loader2,
-  Ban,
-  ChevronRight,
-} from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ShieldAlert, CheckCircle2, XCircle, Clock, Loader2, Ban } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import type { UseSSEReturn } from "@/hooks/useSSE"
-import type { PipelineLogEntry, TicketStage } from "@/types"
+import type { PipelineLogEntry } from "@/types"
 
 interface PipelinePageProps {
   sse: UseSSEReturn
 }
 
-const STAGE_META: Record<TicketStage, { icon: React.ComponentType<{ className?: string }>; label: string; color: string }> = {
-  spam_filter: { icon: ShieldAlert, label: "Спам-фильтр", color: "text-amber-500" },
-  pii_anonymization: { icon: Eye, label: "Анонимизация", color: "text-blue-500" },
-  llm_analysis: { icon: Brain, label: "LLM-анализ", color: "text-purple-500" },
-  geocoding: { icon: MapPin, label: "Геокодирование", color: "text-emerald-500" },
-  enrichment: { icon: Layers, label: "Обогащение", color: "text-primary" },
-}
-
-const STAGES: TicketStage[] = ["spam_filter", "pii_anonymization", "llm_analysis", "geocoding", "enrichment"]
-
 export default function PipelinePage({ sse }: PipelinePageProps) {
   const { logs, ticketStates, batchProgress, batchStatus } = sse
   const logEndRef = useRef<HTMLDivElement>(null)
+  const tableEndRef = useRef<HTMLTableRowElement>(null)
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [logs.length])
+
+  useEffect(() => {
+    tableEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  }, [ticketStates.size])
 
   const progressPct =
     batchProgress && batchProgress.total > 0
       ? Math.round((batchProgress.processed / batchProgress.total) * 100)
       : 0
 
-  // Get tickets sorted by activity (most recent first)
-  const sortedTickets = useMemo(() => {
-    const arr = Array.from(ticketStates.values())
-    return arr.reverse().slice(0, 50) // show last 50
+  // Get tickets in order they arrived (rows load one by one)
+  const tableRows = useMemo(() => {
+    return Array.from(ticketStates.values()).slice(0, 100)
   }, [ticketStates])
 
   return (
@@ -89,24 +70,41 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
-        {/* Left: Ticket state cards */}
+        {/* Left: Extracted features table — rows load one by one */}
         <div className="flex flex-col min-h-0">
           <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
-            Обращения ({ticketStates.size})
+            Результаты извлечения ({tableRows.length})
           </h3>
-          <ScrollArea className="flex-1 pr-3">
-            {sortedTickets.length === 0 ? (
-              <div className="text-sm text-muted-foreground text-center py-8">
-                {batchStatus === "idle" ? "Запустите обработку на странице загрузки" : "Ожидание событий..."}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {sortedTickets.map((ts) => (
-                  <TicketCard key={ts.ticketId} ticket={ts} />
-                ))}
-              </div>
-            )}
-          </ScrollArea>
+          <Card className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full max-h-[calc(100vh-280px)]">
+              {tableRows.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-8">
+                  {batchStatus === "idle" ? "Запустите обработку на странице загрузки" : "Ожидание событий..."}
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">№</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">ID</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Тип</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Тональность</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Сводка</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Спам</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Координаты</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableRows.map((ts, idx) => (
+                      <ResultsTableRow key={ts.ticketId} ticket={ts} index={idx + 1} />
+                    ))}
+                    <tr ref={tableEndRef} />
+                  </tbody>
+                </table>
+              )}
+            </ScrollArea>
+          </Card>
         </div>
 
         {/* Right: Live log stream */}
@@ -136,62 +134,61 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
 
 /* ─── Sub-components ─── */
 
-function TicketCard({ ticket }: { ticket: import("@/types").TicketProcessingState }) {
-  return (
-    <Card className={cn("transition-all", ticket.isSpam && "border-amber-500/30 bg-amber-500/5")}>
-      <CardContent className="py-3 px-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-mono text-muted-foreground">
-            {ticket.ticketId.slice(0, 8)}…
-          </span>
-          {ticket.isSpam ? (
-            <Badge variant="warning">Спам</Badge>
-          ) : ticket.isComplete ? (
-            <Badge variant="success">Готово</Badge>
-          ) : (
-            <Badge variant="secondary">В процессе</Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          {STAGES.map((stage, idx) => {
-            const info = STAGE_META[stage]
-            const stageState = ticket.stages[stage]
-            const Icon = info.icon
-            const isActive = stageState?.status === "in_progress"
-            const isDone = stageState?.status === "completed"
-            const isFailed = stageState?.status === "failed"
+function ResultsTableRow({
+  ticket,
+  index,
+}: {
+  ticket: import("@/types").TicketProcessingState
+  index: number
+}) {
+  const llm = ticket.stages.llm_analysis?.data
+  const geo = ticket.stages.geocoding?.data
+  const enrich = ticket.stages.enrichment?.data
+  const type = (llm?.type ?? enrich?.type ?? "—") as string
+  const sentiment = (llm?.sentiment ?? enrich?.sentiment ?? "—") as string
+  const summary = (llm?.summary ?? enrich?.summary ?? "") as string
+  const lat = geo?.latitude ?? enrich?.latitude
+  const lng = geo?.longitude ?? enrich?.longitude
+  const latNum = typeof lat === "number" ? lat : null
+  const lngNum = typeof lng === "number" ? lng : null
+  const coords =
+    latNum != null && lngNum != null ? `${latNum.toFixed(4)}, ${lngNum.toFixed(4)}` : "—"
 
-            return (
-              <div key={stage} className="flex items-center">
-                <div
-                  className={cn(
-                    "flex items-center justify-center w-7 h-7 rounded-full border transition-all",
-                    isDone && "bg-emerald-500/10 border-emerald-500/50",
-                    isActive && "bg-primary/10 border-primary animate-pulse",
-                    isFailed && "bg-destructive/10 border-destructive/50",
-                    !stageState && "border-muted-foreground/20 opacity-40",
-                  )}
-                  title={info.label}
-                >
-                  {isActive ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                  ) : isDone ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  ) : isFailed ? (
-                    <XCircle className="h-3.5 w-3.5 text-destructive" />
-                  ) : (
-                    <Icon className={cn("h-3.5 w-3.5", stageState ? info.color : "text-muted-foreground/40")} />
-                  )}
-                </div>
-                {idx < STAGES.length - 1 && (
-                  <ChevronRight className="h-3 w-3 text-muted-foreground/30 mx-0.5" />
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
+  return (
+    <tr
+      className={cn(
+        "border-b border-border/50 transition-colors",
+        ticket.isSpam && "bg-amber-500/5",
+      )}
+    >
+      <td className="py-2 px-3 text-muted-foreground">{ticket.csvRow ?? index}</td>
+      <td className="py-2 px-3 font-mono text-xs">{ticket.ticketId.slice(0, 8)}…</td>
+      <td className="py-2 px-3">{type}</td>
+      <td className="py-2 px-3">{sentiment}</td>
+      <td className="py-2 px-3 max-w-[180px] truncate" title={summary}>
+        {summary || "—"}
+      </td>
+      <td className="py-2 px-3">
+        {ticket.isSpam ? (
+          <Badge variant="warning">Спам</Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </td>
+      <td className="py-2 px-3 font-mono text-xs">{coords}</td>
+      <td className="py-2 px-3">
+        {ticket.isSpam ? (
+          <Badge variant="warning">Спам</Badge>
+        ) : ticket.isComplete ? (
+          <Badge variant="success">Готово</Badge>
+        ) : (
+          <Badge variant="secondary">
+            <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
+            В процессе
+          </Badge>
+        )}
+      </td>
+    </tr>
   )
 }
 
