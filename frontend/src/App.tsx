@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Routes, Route, NavLink } from "react-router-dom"
 import { Flame, Upload, Activity, Search } from "lucide-react"
 import { useSSE } from "@/hooks/useSSE"
@@ -5,6 +6,7 @@ import UploadPage from "@/pages/UploadPage"
 import PipelinePage from "@/pages/PipelinePage"
 import LookupPage from "@/pages/LookupPage"
 import { cn } from "@/lib/utils"
+import type { UploadState } from "@/pages/UploadPage"
 
 const navItems = [
   { to: "/", icon: Upload, label: "Загрузка" },
@@ -12,8 +14,16 @@ const navItems = [
   { to: "/lookup", icon: Search, label: "Поиск" },
 ]
 
+const initialUpload: UploadState = { file: null, loading: false, result: null, error: null }
+
 export default function App() {
   const sse = useSSE()
+
+  // Persist upload state across tab switches
+  const [uploadStep, setUploadStep] = useState<"upload" | "processing" | "done">("upload")
+  const [tickets, setTickets] = useState<UploadState>(initialUpload)
+  const [managers, setManagers] = useState<UploadState>(initialUpload)
+  const [units, setUnits] = useState<UploadState>(initialUpload)
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -72,7 +82,22 @@ export default function App() {
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         <Routes>
-          <Route path="/" element={<UploadPage sse={sse} />} />
+          <Route
+            path="/"
+            element={
+              <UploadPage
+                sse={sse}
+                step={uploadStep}
+                setStep={setUploadStep}
+                tickets={tickets}
+                setTickets={setTickets}
+                managers={managers}
+                setManagers={setManagers}
+                units={units}
+                setUnits={setUnits}
+              />
+            }
+          />
           <Route path="/pipeline" element={<PipelinePage sse={sse} />} />
           <Route path="/lookup" element={<LookupPage />} />
         </Routes>

@@ -8,13 +8,7 @@ import { ingestTickets, ingestManagers, ingestBusinessUnits, startProcessing } f
 import type { UseSSEReturn } from "@/hooks/useSSE"
 import type { IngestTicketsResponse, IngestManagersResponse, IngestBusinessUnitsResponse } from "@/types"
 
-interface UploadPageProps {
-  sse: UseSSEReturn
-}
-
-type Step = "upload" | "processing" | "done"
-
-interface UploadState {
+export type UploadState = {
   file: File | null
   loading: boolean
   result: IngestTicketsResponse | IngestManagersResponse | IngestBusinessUnitsResponse | null
@@ -23,11 +17,19 @@ interface UploadState {
 
 const initialUpload: UploadState = { file: null, loading: false, result: null, error: null }
 
-export default function UploadPage({ sse }: UploadPageProps) {
-  const [step, setStep] = useState<Step>("upload")
-  const [tickets, setTickets] = useState<UploadState>(initialUpload)
-  const [managers, setManagers] = useState<UploadState>(initialUpload)
-  const [units, setUnits] = useState<UploadState>(initialUpload)
+interface UploadPageProps {
+  sse: UseSSEReturn
+  step: "upload" | "processing" | "done"
+  setStep: (s: "upload" | "processing" | "done") => void
+  tickets: UploadState
+  setTickets: React.Dispatch<React.SetStateAction<UploadState>>
+  managers: UploadState
+  setManagers: React.Dispatch<React.SetStateAction<UploadState>>
+  units: UploadState
+  setUnits: React.Dispatch<React.SetStateAction<UploadState>>
+}
+
+export default function UploadPage({ sse, step, setStep, tickets, setTickets, managers, setManagers, units, setUnits }: UploadPageProps) {
   const [processing, setProcessing] = useState(false)
 
   const ticketsRef = useRef<HTMLInputElement>(null)
