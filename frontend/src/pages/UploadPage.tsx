@@ -63,7 +63,8 @@ export default function UploadPage({ sse, step, setStep, tickets, setTickets, ma
     setProcessing(true)
     sse.clearLogs()
     try {
-      await startProcessing(batchId)
+      const res = await startProcessing(batchId)
+      sse.setBatchFromApiResponse(res.total_rows ?? 0, res.batch_id)
       setStep("processing")
     } catch (e) {
       console.error(e)
@@ -74,7 +75,14 @@ export default function UploadPage({ sse, step, setStep, tickets, setTickets, ma
 
   const progressPct =
     sse.batchProgress && sse.batchProgress.total > 0
-      ? Math.round((sse.batchProgress.processed / sse.batchProgress.total) * 100)
+      ? Math.min(
+        100,
+        Math.round(
+          (Math.max(sse.batchProgress.processed, (sse.batchProgress.current ?? 1) - 1) /
+            sse.batchProgress.total) *
+          100
+        )
+      )
       : 0
 
   const allUploaded = tickets.result && managers.result && units.result
@@ -152,7 +160,9 @@ export default function UploadPage({ sse, step, setStep, tickets, setTickets, ma
             <CardDescription>
               {sse.batchStatus === "completed"
                 ? "Обработка завершена!"
-                : `Идёт обработка пакета ${batchId?.slice(0, 8)}...`}
+                : sse.batchProgress?.total
+                  ? `Обработка обращения ${sse.batchProgress.current ?? 1}/${sse.batchProgress.total}`
+                  : `Идёт обработка пакета ${batchId?.slice(0, 8)}...`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -167,6 +177,9 @@ export default function UploadPage({ sse, step, setStep, tickets, setTickets, ma
               <div className="flex gap-4 text-sm text-muted-foreground">
                 <span>Всего: {sse.batchProgress.total}</span>
                 <span>Обработано: {sse.batchProgress.processed}</span>
+                {sse.batchProgress.current != null && sse.batchProgress.current > sse.batchProgress.processed && (
+                  <span>В работе: {sse.batchProgress.current}</span>
+                )}
                 <span>Спам: {sse.batchProgress.spam}</span>
               </div>
             )}

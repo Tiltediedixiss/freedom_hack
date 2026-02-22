@@ -23,6 +23,7 @@ from app.services.priority import score_batch
 from app.services.routing import route_batch
 from app.services.geo_filtering import assign_ticket_to_nearest
 from app.core.sse_manager import sse_manager
+from app.core.progress_store import set_progress
 
 log = logging.getLogger("fire.pipeline")
 
@@ -49,9 +50,13 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
     Loads batch and tickets (heuristic: most recent ingested up to batch.total_rows), then
     for each ticket: spam check -> PII anonymize -> LLM + geocode -> routing.
     """
+    t0 = time.perf_counter()
+    log.info("[PIPELINE] process_batch start: batch_id=%s", batch_id)
+
     result = await db.execute(select(BatchUpload).where(BatchUpload.id == batch_id))
     batch = result.scalar_one_or_none()
     if not batch:
+        log.warning("[PIPELINE] batch not found: %s", batch_id)
         return {"error": "Batch not found", "processed": 0}
 
     result = await db.execute(
@@ -62,20 +67,35 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
     )
     tickets = list(result.scalars().all())
     if not tickets:
+        log.warning("[PIPELINE] no ingested tickets for batch %s", batch_id)
         return {"message": "No ingested tickets to process", "processed": 0}
 
+    log.info("[PIPELINE] loaded %d tickets, sending pipeline in_progress", len(tickets))
+    batch_id_str = str(batch_id)
+    set_progress(batch_id_str, len(tickets), 0, 0, 1, "processing")
     await sse_manager.send_update(
         ticket_id=uuid.UUID(int=0),
         batch_id=batch_id,
         stage="pipeline",
         status="in_progress",
         message=f"Обработка {len(tickets)} обращений",
-        data={"total": len(tickets), "processed": 0, "spam": 0},
+        data={"total": len(tickets), "processed": 0, "spam": 0, "current": 1},
     )
 
     processed = 0
     spam_count = 0
-    for ticket in tickets:
+    for idx, ticket in enumerate(tickets):
+        current = idx + 1
+        log.info("[PIPELINE] ticket %d/%d: %s", current, len(tickets), ticket.id)
+        set_progress(batch_id_str, len(tickets), processed, spam_count, current, "processing")
+        await sse_manager.send_update(
+            ticket_id=uuid.UUID(int=0),
+            batch_id=batch_id,
+            stage="pipeline",
+            status="in_progress",
+            message=f"Обработка {current}/{len(tickets)}",
+            data={"total": len(tickets), "processed": processed, "spam": spam_count, "current": current},
+        )
         try:
             spam_result = await check_spam(db, ticket, str(batch_id))
             if spam_result.is_spam:
@@ -103,6 +123,7 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
                     data={"skipped": True, "is_spam": True},
                 )
                 processed += 1
+                set_progress(batch_id_str, len(tickets), processed, spam_count, current, "processing")
                 continue
 
             await anonymize_ticket(db, ticket, batch_id)
@@ -195,9 +216,13 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
                 },
             )
             processed += 1
+            set_progress(batch_id_str, len(tickets), processed, spam_count, current, "processing")
         except Exception as e:
             log.exception("Pipeline failed for ticket %s: %s", ticket.id, e)
 
+    elapsed = time.perf_counter() - t0
+    log.info("[PIPELINE] done in %.1fs: processed=%d, spam=%d", elapsed, processed, spam_count)
+    set_progress(batch_id_str, len(tickets), processed, spam_count, len(tickets), "completed")
     await sse_manager.send_update(
         ticket_id=uuid.UUID(int=0),
         batch_id=batch_id,

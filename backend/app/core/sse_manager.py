@@ -4,11 +4,14 @@ Broadcasts real-time processing updates to connected frontend clients.
 """
 
 import asyncio
+import logging
 import uuid
 from datetime import datetime
 from typing import AsyncGenerator
 
 from app.models.schemas import SSEEvent
+
+log = logging.getLogger("fire.sse")
 
 
 class SSEManager:
@@ -20,6 +23,7 @@ class SSEManager:
     def subscribe(self) -> str:
         subscriber_id = str(uuid.uuid4())
         self._queues[subscriber_id] = asyncio.Queue()
+        log.info("[SSE] client subscribed, total subscribers=%d", len(self._queues))
         return subscriber_id
 
     def unsubscribe(self, subscriber_id: str):
@@ -27,6 +31,9 @@ class SSEManager:
 
     async def broadcast(self, event: SSEEvent):
         data = event.model_dump_json()
+        n = len(self._queues)
+        if n == 0 and event.stage == "pipeline":
+            log.warning("[SSE] broadcast pipeline event but 0 subscribers (stage=%s)", event.stage)
         dead = []
         for sid, queue in self._queues.items():
             try:

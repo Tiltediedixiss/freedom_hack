@@ -27,7 +27,12 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
 
   const progressPct =
     batchProgress && batchProgress.total > 0
-      ? Math.round((batchProgress.processed / batchProgress.total) * 100)
+      ? Math.min(
+          100,
+          Math.round(
+            (Math.max(batchProgress.processed, (batchProgress.current ?? 1) - 1) / batchProgress.total) * 100
+          )
+        )
       : 0
 
   // Get tickets in order they arrived (rows load one by one)

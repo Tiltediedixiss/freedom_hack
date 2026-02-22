@@ -5,6 +5,7 @@ API routes for SSE streaming and pipeline control.
   GET  /api/processing/status/{batch_id} — get processing states
 """
 
+import logging
 import uuid
 import asyncio
 from typing import Optional
@@ -15,12 +16,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.database import get_db, async_session_factory
+from app.core.progress_store import set_progress, get_progress
 from app.core.sse_manager import sse_manager
 from app.models.models import BatchUpload, ProcessingState
 from app.models.schemas import ProcessingStateResponse
 from app.services.pipeline import process_batch
 
+log = logging.getLogger("app.api.processing")
 router = APIRouter(prefix="/api/processing", tags=["Processing"])
+
 
 
 @router.get("/stream")
@@ -50,14 +54,26 @@ async def start_processing(
     Runs in the background so the API returns immediately.
     SSE provides real-time progress updates.
     """
+    # Fetch total_rows for immediate frontend feedback
+    async with async_session_factory() as db:
+        result = await db.execute(select(BatchUpload).where(BatchUpload.id == batch_id))
+        batch = result.scalar_one_or_none()
+        total_rows = batch.total_rows if batch else 0
+
+    sub_count = len(getattr(sse_manager, "_queues", {}))
+    log.info("[PROCESSING] start: batch_id=%s, total_rows=%d, subscribers=%d", batch_id, total_rows, sub_count)
+
     async def _run_pipeline():
+        log.info("[PROCESSING] background task started for batch %s", batch_id)
         async with async_session_factory() as db:
             try:
                 result = await process_batch(db, batch_id)
+                log.info("[PROCESSING] background task done: %s", result)
                 await db.commit()
             except Exception as e:
                 import traceback
                 traceback.print_exc()
+                log.exception("[PROCESSING] pipeline failed")
                 await db.rollback()
                 await sse_manager.send_update(
                     ticket_id=uuid.UUID(int=0),
@@ -67,13 +83,22 @@ async def start_processing(
                     message=f"Pipeline error: {str(e)}",
                 )
 
+    set_progress(str(batch_id), total_rows, 0, 0, 1, "processing")
     background_tasks.add_task(_run_pipeline)
 
     return {
         "message": f"Processing started for batch {batch_id}",
         "batch_id": str(batch_id),
+        "total_rows": total_rows,
         "stream_url": "/api/processing/stream",
     }
+
+
+@router.get("/progress/{batch_id}")
+async def get_processing_progress(batch_id: uuid.UUID):
+    """Poll for progress when SSE is unreliable (e.g. proxy buffering)."""
+    p = get_progress(str(batch_id))
+    return p or {"total": 0, "processed": 0, "spam": 0, "current": 0, "status": "idle"}
 
 
 @router.get("/status/{batch_id}", response_model=list[ProcessingStateResponse])

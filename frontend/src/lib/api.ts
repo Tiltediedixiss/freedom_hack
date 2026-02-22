@@ -52,7 +52,10 @@ export const ingestBusinessUnits = (file: File) =>
 
 // ── Processing ──
 export const startProcessing = (batchId: string) =>
-  request<{ message: string; batch_id: string }>(`/processing/start/${batchId}`, { method: "POST" })
+  request<{ message: string; batch_id: string; total_rows: number }>(`/processing/start/${batchId}`, { method: "POST" })
+
+export const getProcessingProgress = (batchId: string) =>
+  request<{ total: number; processed: number; spam: number; current: number; status: string }>(`/processing/progress/${batchId}`)
 
 export const getProcessingStatus = (batchId: string) =>
   request<import("@/types").ProcessingState[]>(`/processing/status/${batchId}`)

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react"
+import { getProcessingProgress } from "@/lib/api"
 import type { SSEEvent, PipelineLogEntry, TicketProcessingState, LogLevel, TicketStage } from "@/types"
 
 const SSE_URL = "/api/processing/stream"
@@ -97,21 +98,30 @@ function updateTicketState(
   return next
 }
 
+export interface BatchProgress {
+  total: number
+  processed: number
+  spam: number
+  current?: number
+}
+
 export interface UseSSEReturn {
   logs: PipelineLogEntry[]
   ticketStates: Map<string, TicketProcessingState>
   isConnected: boolean
-  batchProgress: { total: number; processed: number; spam: number } | null
+  batchProgress: BatchProgress | null
   batchStatus: "idle" | "processing" | "completed" | "failed"
   clearLogs: () => void
+  setBatchFromApiResponse: (total: number, batchId: string) => void
 }
 
 export function useSSE(): UseSSEReturn {
   const [logs, setLogs] = useState<PipelineLogEntry[]>([])
   const [ticketStates, setTicketStates] = useState<Map<string, TicketProcessingState>>(new Map())
   const [isConnected, setIsConnected] = useState(false)
-  const [batchProgress, setBatchProgress] = useState<{ total: number; processed: number; spam: number } | null>(null)
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null)
   const [batchStatus, setBatchStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle")
+  const [currentBatchId, setCurrentBatchId] = useState<string | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
   const ticketStatesRef = useRef(ticketStates)
 
@@ -123,7 +133,38 @@ export function useSSE(): UseSSEReturn {
     setTicketStates(new Map())
     setBatchProgress(null)
     setBatchStatus("idle")
+    setCurrentBatchId(null)
   }, [])
+
+  const setBatchFromApiResponse = useCallback((total: number, batchId: string) => {
+    setBatchStatus("processing")
+    setCurrentBatchId(batchId)
+    setBatchProgress({ total, processed: 0, spam: 0, current: 1 })
+  }, [])
+
+  // Poll for progress (SSE can be unreliable behind proxies)
+  useEffect(() => {
+    if (batchStatus !== "processing" || !currentBatchId) return
+    const poll = async () => {
+      try {
+        const data = await getProcessingProgress(currentBatchId)
+        setBatchProgress({
+          total: data.total,
+          processed: data.processed,
+          spam: data.spam,
+          current: data.current,
+        })
+        if (data.status === "completed") {
+          setBatchStatus("completed")
+        }
+      } catch {
+        // ignore
+      }
+    }
+    poll()
+    const id = setInterval(poll, 1500)
+    return () => clearInterval(id)
+  }, [batchStatus, currentBatchId])
 
   useEffect(() => {
     const connect = () => {
@@ -153,11 +194,14 @@ export function useSSE(): UseSSEReturn {
           if (event.stage === "pipeline") {
             if (event.status === "in_progress") {
               setBatchStatus("processing")
-              setBatchProgress({
-                total: (event.data.total as number) || 0,
-                processed: 0,
-                spam: 0,
-              })
+              const total = (event.data.total as number) || 0
+              const current = (event.data.current as number) ?? 1
+              setBatchProgress((prev) => ({
+                total,
+                processed: (event.data.processed as number) ?? prev?.processed ?? 0,
+                spam: (event.data.spam as number) ?? prev?.spam ?? 0,
+                current,
+              }))
             } else if (event.status === "completed") {
               setBatchStatus("completed")
               setBatchProgress({
@@ -198,5 +242,5 @@ export function useSSE(): UseSSEReturn {
     }
   }, [])
 
-  return { logs, ticketStates, isConnected, batchProgress, batchStatus, clearLogs }
+  return { logs, ticketStates, isConnected, batchProgress, batchStatus, clearLogs, setBatchFromApiResponse }
 }
