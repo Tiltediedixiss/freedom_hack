@@ -32,7 +32,7 @@ from app.services.pii_anonymizer import anonymize_ticket, rehydrate_text
 from app.services.llm_analyzer import analyze_ticket as llm_analyze_api
 from app.services.sentiment_analyzer import analyze_sentiment as sentiment_analyze_api
 from app.services.geocoder import geocode_address
-from app.services.routing import assign_ticket_to_nearest
+from backend.app.services.geo_filtering import assign_ticket_to_nearest
 
 log = logging.getLogger("pipeline")
 
