@@ -1,5 +1,4 @@
-from app.models.schemas import TicketType, PriorityBreakdown
-from app.services.geo import filter_by_geo
+from app.services.geocoder import filter_by_geo
 from app.services.skills import filter_by_skill
 
 DIFFICULTY = {
@@ -27,10 +26,9 @@ def route_batch(
     tickets: list[dict],
     managers: list[dict],
 ) -> list[dict]:
-
     sorted_tickets = sorted(
         tickets,
-        key=lambda t: t["priority"].final if isinstance(t["priority"], PriorityBreakdown) else t["priority"]["final"],
+        key=lambda t: (t.get("priority") or {}).get("final", 0) if isinstance(t.get("priority"), dict) else (t.get("priority") or 0),
         reverse=True,
     )
 
@@ -43,7 +41,6 @@ def route_batch(
 
         if difficulty is None:
             assignments.append({
-                "ticket_id": ticket["ticket_id"],
                 "csv_row_index": ticket["csv_row_index"],
                 "manager_id": None,
                 "manager_name": None,
@@ -58,7 +55,6 @@ def route_batch(
 
         if not eligible:
             assignments.append({
-                "ticket_id": ticket["ticket_id"],
                 "csv_row_index": ticket["csv_row_index"],
                 "manager_id": None,
                 "manager_name": None,
@@ -72,13 +68,8 @@ def route_batch(
 
         loads[best["id"]] = loads.get(best["id"], 0) + difficulty
 
-        priority = ticket["priority"]
-        if isinstance(priority, PriorityBreakdown):
-            p_final = priority.final
-            p_breakdown = priority.model_dump()
-        else:
-            p_final = priority["final"]
-            p_breakdown = priority
+        priority = ticket.get("priority") or {}
+        p_final = priority.get("final", 0) if isinstance(priority, dict) else priority
 
         explanation = (
             f"Назначен менеджеру {best['full_name']} ({best['position']}, {best.get('office', '?')}). "
@@ -88,7 +79,6 @@ def route_batch(
         )
 
         assignments.append({
-            "ticket_id": ticket["ticket_id"],
             "csv_row_index": ticket["csv_row_index"],
             "manager_id": best["id"],
             "manager_name": best["full_name"],
@@ -96,7 +86,7 @@ def route_batch(
             "difficulty": difficulty,
             "manager_load_after": loads[best["id"]],
             "priority_final": p_final,
-            "priority_breakdown": p_breakdown,
+            "priority_breakdown": priority if isinstance(priority, dict) else {"final": priority},
             "explanation": explanation,
             "skipped": False,
         })
