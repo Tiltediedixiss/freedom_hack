@@ -1,16 +1,126 @@
 import asyncio
 import logging
 import time
+import uuid
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.models import (
+    AIAnalysis,
+    BatchUpload,
+    Ticket,
+    TicketTypeEnum,
+    SentimentEnum,
+    TicketStatusEnum,
+)
 from app.services.csv_parser import parse_tickets, parse_managers, parse_business_units
 from app.services.personal_data_masking import anonymize_ticket, rehydrate_ticket
-from app.services.spam_prefiltering import check_spam_ticket
+from app.services.spam_prefiltering import check_spam_ticket, check_spam
 from app.services.llm_processing import analyze_ticket as llm_analyze, analyze_batch as llm_batch
 from app.services.geocoder import geocode_ticket, geocode_batch
 from app.services.priority import score_batch
 from app.services.routing import route_batch
+from app.services.geo_filtering import assign_ticket_to_nearest
 
 log = logging.getLogger("fire.pipeline")
+
+# LLM type string -> TicketTypeEnum
+_LLM_TYPE_TO_ENUM = {
+    "жалоба": TicketTypeEnum.жалоба,
+    "смена данных": TicketTypeEnum.смена_данных,
+    "консультация": TicketTypeEnum.консультация,
+    "претензия": TicketTypeEnum.претензия,
+    "неработоспособность приложения": TicketTypeEnum.неработоспособность,
+    "мошеннические действия": TicketTypeEnum.мошенничество,
+    "спам": TicketTypeEnum.спам,
+}
+_SENTIMENT_TO_ENUM = {
+    "негативный": SentimentEnum.негативный,
+    "нейтральный": SentimentEnum.нейтральный,
+    "позитивный": SentimentEnum.позитивный,
+}
+
+
+async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
+    """
+    Run the enrichment pipeline for all tickets in a batch (DB mode).
+    Loads batch and tickets (heuristic: most recent ingested up to batch.total_rows), then
+    for each ticket: spam check -> PII anonymize -> LLM + geocode -> routing.
+    """
+    result = await db.execute(select(BatchUpload).where(BatchUpload.id == batch_id))
+    batch = result.scalar_one_or_none()
+    if not batch:
+        return {"error": "Batch not found", "processed": 0}
+
+    result = await db.execute(
+        select(Ticket)
+        .where(Ticket.status == TicketStatusEnum.ingested)
+        .order_by(Ticket.created_at.desc())
+        .limit(max(1, batch.total_rows or 0))
+    )
+    tickets = list(result.scalars().all())
+    if not tickets:
+        return {"message": "No ingested tickets to process", "processed": 0}
+
+    processed = 0
+    for ticket in tickets:
+        try:
+            spam_result = await check_spam(db, ticket, str(batch_id))
+            if spam_result.is_spam:
+                ticket.status = TicketStatusEnum.enriched
+                await db.flush()
+                processed += 1
+                continue
+
+            await anonymize_ticket(db, ticket, batch_id)
+            await db.flush()
+
+            t_dict = {
+                "description": ticket.description,
+                "description_anonymized": ticket.description_anonymized,
+                "age": ticket.age,
+                "segment": getattr(ticket.segment, "name", None) if ticket.segment else None,
+                "attachments": ticket.attachments or [],
+                "country": ticket.country,
+                "region": ticket.region,
+                "city": ticket.city,
+                "street": ticket.street,
+                "house": ticket.house,
+            }
+            llm_result, geo_result = await asyncio.gather(
+                llm_analyze(t_dict),
+                geocode_ticket(dict(t_dict)),
+                return_exceptions=True,
+            )
+            if isinstance(llm_result, Exception):
+                log.warning("LLM failed for ticket %s: %s", ticket.id, llm_result)
+            else:
+                type_str = (llm_result.get("type") or "Консультация").strip().lower()
+                sentiment_str = (llm_result.get("sentiment") or "Нейтральный").strip().lower()
+                ai = AIAnalysis(
+                    ticket_id=ticket.id,
+                    detected_type=_LLM_TYPE_TO_ENUM.get(type_str, TicketTypeEnum.консультация),
+                    summary=llm_result.get("summary"),
+                    sentiment=_SENTIMENT_TO_ENUM.get(sentiment_str, SentimentEnum.нейтральный),
+                    sentiment_confidence=float(llm_result.get("sentiment_confidence", 0.5)),
+                )
+                db.add(ai)
+            if isinstance(geo_result, Exception):
+                log.warning("Geocode failed for ticket %s: %s", ticket.id, geo_result)
+            else:
+                ticket.latitude = geo_result.get("latitude")
+                ticket.longitude = geo_result.get("longitude")
+                ticket.geo_explanation = geo_result.get("geo_explanation")
+
+            ticket.status = TicketStatusEnum.enriched
+            await assign_ticket_to_nearest(ticket, db, str(batch_id))
+            await db.flush()
+            processed += 1
+        except Exception as e:
+            log.exception("Pipeline failed for ticket %s: %s", ticket.id, e)
+
+    return {"processed": processed, "total": len(tickets)}
 
 
 async def process_ticket(ticket: dict, uploads_dir: str = "/app/uploads") -> dict:

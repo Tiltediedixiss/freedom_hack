@@ -1,4 +1,4 @@
-from app.services.geocoder import filter_by_geo
+from app.services.geo_filtering import filter_by_geo
 from app.services.skills import filter_by_skill
 
 DIFFICULTY = {

@@ -109,6 +109,19 @@ def rehydrate_text(text: str, mappings: list[dict]) -> str:
     return result
 
 
+def rehydrate_ticket(ticket: dict) -> None:
+    """
+    In-place rehydrate PII tokens in a ticket dict (used by file-based pipeline).
+    Expects ticket to have _pii_detections (list of {token, original}) from anonymize step.
+    """
+    mappings = ticket.get("_pii_detections") or ticket.get("_pii_mappings") or []
+    if not mappings:
+        return
+    for key in ("description_anonymized", "summary", "explanation"):
+        if ticket.get(key):
+            ticket[key] = rehydrate_text(str(ticket[key]), mappings)
+
+
 def _overlaps(start: int, end: int, detections: list[PIIDetection]) -> bool:
     for d in detections:
         if start < d.end and end > d.start:
