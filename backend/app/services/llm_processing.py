@@ -1,3 +1,16 @@
+"""
+Step 4: Feature extraction with LLM calling
+
+Processes the non-spam tickets to get:
+- Sentiment
+- Type
+- Ticket Language (label + actual language - the handling of Uzbek and other non RU, ENG, KZ langauges)
+- Needs Data Change Binary Variable
+- Summary of the Ticket
+- Explanation to be Passed on Admin Panel Later
+
+"""
+
 import asyncio
 import base64
 import json
@@ -94,7 +107,7 @@ INSTRUCTIONS:
    - Mixed: primary = language of substantive content (ignore signatures)
    Return: language_label, language_actual, language_is_mixed, language_note
 
-4. **summary** — 1-2 sentences in Russian: what the client needs + recommended action for the manager.
+4. **summary** — 1-2 sentences in Russian: what the client needs.
 
 5. **explanation** — 1-2 sentences in Russian explaining your classification reasoning. Example: "Тип — Консультация, так как клиент задаёт вопрос о покупке акций и не выражает недовольства. Тональность нейтральная — вежливый информационный запрос."
 
