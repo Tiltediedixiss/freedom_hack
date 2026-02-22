@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react"
-import { getProcessingProgress } from "@/lib/api"
+import { getProcessingProgress, type ProcessingProgressResult } from "@/lib/api"
 import type { SSEEvent, PipelineLogEntry, TicketProcessingState, LogLevel, TicketStage } from "@/types"
 
 const SSE_URL = "/api/processing/stream"
@@ -108,6 +108,7 @@ export interface BatchProgress {
 export interface UseSSEReturn {
   logs: PipelineLogEntry[]
   ticketStates: Map<string, TicketProcessingState>
+  extractedResults: ProcessingProgressResult[]
   isConnected: boolean
   batchProgress: BatchProgress | null
   batchStatus: "idle" | "processing" | "completed" | "failed"
@@ -122,6 +123,7 @@ export function useSSE(): UseSSEReturn {
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null)
   const [batchStatus, setBatchStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle")
   const [currentBatchId, setCurrentBatchId] = useState<string | null>(null)
+  const [extractedResults, setExtractedResults] = useState<ProcessingProgressResult[]>([])
   const eventSourceRef = useRef<EventSource | null>(null)
   const ticketStatesRef = useRef(ticketStates)
 
@@ -134,6 +136,7 @@ export function useSSE(): UseSSEReturn {
     setBatchProgress(null)
     setBatchStatus("idle")
     setCurrentBatchId(null)
+    setExtractedResults([])
   }, [])
 
   const setBatchFromApiResponse = useCallback((total: number, batchId: string) => {
@@ -142,9 +145,9 @@ export function useSSE(): UseSSEReturn {
     setBatchProgress({ total, processed: 0, spam: 0, current: 1 })
   }, [])
 
-  // Poll for progress (SSE can be unreliable behind proxies)
+  // Poll for progress and extracted results (SSE can be unreliable behind proxies)
   useEffect(() => {
-    if (batchStatus !== "processing" || !currentBatchId) return
+    if ((batchStatus !== "processing" && batchStatus !== "completed") || !currentBatchId) return
     const poll = async () => {
       try {
         const data = await getProcessingProgress(currentBatchId)
@@ -156,6 +159,9 @@ export function useSSE(): UseSSEReturn {
         })
         if (data.status === "completed") {
           setBatchStatus("completed")
+        }
+        if (data.results && data.results.length > 0) {
+          setExtractedResults(data.results)
         }
       } catch {
         // ignore
@@ -242,5 +248,5 @@ export function useSSE(): UseSSEReturn {
     }
   }, [])
 
-  return { logs, ticketStates, isConnected, batchProgress, batchStatus, clearLogs, setBatchFromApiResponse }
+  return { logs, ticketStates, extractedResults, isConnected, batchProgress, batchStatus, clearLogs, setBatchFromApiResponse }
 }

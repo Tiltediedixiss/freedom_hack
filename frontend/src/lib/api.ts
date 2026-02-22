@@ -54,8 +54,27 @@ export const ingestBusinessUnits = (file: File) =>
 export const startProcessing = (batchId: string) =>
   request<{ message: string; batch_id: string; total_rows: number }>(`/processing/start/${batchId}`, { method: "POST" })
 
+export interface ProcessingProgressResult {
+  ticket_id: string
+  csv_row: number | null
+  type: string
+  sentiment: string
+  summary: string
+  latitude: number | null
+  longitude: number | null
+  is_spam: boolean
+  is_complete: boolean
+}
+
 export const getProcessingProgress = (batchId: string) =>
-  request<{ total: number; processed: number; spam: number; current: number; status: string }>(`/processing/progress/${batchId}`)
+  request<{
+    total: number
+    processed: number
+    spam: number
+    current: number
+    status: string
+    results?: ProcessingProgressResult[]
+  }>(`/processing/progress/${batchId}`)
 
 export const getProcessingStatus = (batchId: string) =>
   request<import("@/types").ProcessingState[]>(`/processing/status/${batchId}`)

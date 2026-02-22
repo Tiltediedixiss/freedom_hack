@@ -1,29 +1,19 @@
 import { useEffect, useRef, useMemo } from "react"
-import { ShieldAlert, CheckCircle2, XCircle, Clock, Loader2, Ban } from "lucide-react"
+import { CheckCircle2, Loader2, Ban } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import type { UseSSEReturn } from "@/hooks/useSSE"
-import type { PipelineLogEntry } from "@/types"
 
 interface PipelinePageProps {
   sse: UseSSEReturn
 }
 
 export default function PipelinePage({ sse }: PipelinePageProps) {
-  const { logs, ticketStates, batchProgress, batchStatus } = sse
-  const logEndRef = useRef<HTMLDivElement>(null)
+  const { ticketStates, extractedResults, batchProgress, batchStatus } = sse
   const tableEndRef = useRef<HTMLTableRowElement>(null)
-
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [logs.length])
-
-  useEffect(() => {
-    tableEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
-  }, [ticketStates.size])
 
   const progressPct =
     batchProgress && batchProgress.total > 0
@@ -35,10 +25,27 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
         )
       : 0
 
-  // Get tickets in order they arrived (rows load one by one)
+  // Prefer polled extractedResults (reliable); fallback to ticketStates from SSE
   const tableRows = useMemo(() => {
-    return Array.from(ticketStates.values()).slice(0, 100)
-  }, [ticketStates])
+    if (extractedResults.length > 0) {
+      return extractedResults
+    }
+    return Array.from(ticketStates.values()).map((ts) => ({
+      ticket_id: ts.ticketId,
+      csv_row: ts.csvRow ?? null,
+      type: (ts.stages.llm_analysis?.data?.type ?? ts.stages.enrichment?.data?.type ?? "—") as string,
+      sentiment: (ts.stages.llm_analysis?.data?.sentiment ?? ts.stages.enrichment?.data?.sentiment ?? "—") as string,
+      summary: (ts.stages.llm_analysis?.data?.summary ?? ts.stages.enrichment?.data?.summary ?? "—") as string,
+      latitude: (ts.stages.geocoding?.data?.latitude ?? ts.stages.enrichment?.data?.latitude) as number | null,
+      longitude: (ts.stages.geocoding?.data?.longitude ?? ts.stages.enrichment?.data?.longitude) as number | null,
+      is_spam: ts.isSpam,
+      is_complete: ts.isComplete,
+    }))
+  }, [extractedResults, ticketStates])
+
+  useEffect(() => {
+    tableEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  }, [tableRows.length])
 
   return (
     <div className="p-6 space-y-6 h-full flex flex-col">
@@ -74,64 +81,42 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
-        {/* Left: Extracted features table — rows load one by one */}
-        <div className="flex flex-col min-h-0">
-          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
-            Результаты извлечения ({tableRows.length})
-          </h3>
-          <Card className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full max-h-[calc(100vh-280px)]">
+      <div className="flex flex-col flex-1 min-h-0">
+        <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
+          Результаты извлечения ({tableRows.length})
+        </h3>
+        <Card className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full max-h-[calc(100vh-280px)]">
+            <div className="overflow-x-auto">
               {tableRows.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-8">
                   {batchStatus === "idle" ? "Запустите обработку на странице загрузки" : "Ожидание событий..."}
                 </div>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[800px]">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">№</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">ID</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Тип</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Тональность</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">№</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">ID</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Тип</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Тональность</th>
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground">Сводка</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Спам</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Координаты</th>
-                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Статус</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Спам</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Координаты</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Статус</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tableRows.map((ts, idx) => (
-                      <ResultsTableRow key={ts.ticketId} ticket={ts} index={idx + 1} />
+                    {tableRows.map((row, idx) => (
+                      <ResultsTableRow key={row.ticket_id} row={row} index={idx + 1} />
                     ))}
                     <tr ref={tableEndRef} />
                   </tbody>
                 </table>
               )}
-            </ScrollArea>
-          </Card>
-        </div>
-
-        {/* Right: Live log stream */}
-        <div className="flex flex-col min-h-0">
-          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
-            Лог событий ({logs.length})
-          </h3>
-          <Card className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full max-h-[calc(100vh-280px)]">
-              <div className="p-3 font-mono text-xs space-y-0.5">
-                {logs.length === 0 ? (
-                  <div className="text-muted-foreground text-center py-8">
-                    Нет событий
-                  </div>
-                ) : (
-                  logs.map((log) => <LogLine key={log.id} entry={log} />)
-                )}
-                <div ref={logEndRef} />
-              </div>
-            </ScrollArea>
-          </Card>
-        </div>
+            </div>
+          </ScrollArea>
+        </Card>
       </div>
     </div>
   )
@@ -139,42 +124,40 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
 
 /* ─── Sub-components ─── */
 
-function ResultsTableRow({
-  ticket,
-  index,
-}: {
-  ticket: import("@/types").TicketProcessingState
-  index: number
-}) {
-  const llm = ticket.stages.llm_analysis?.data
-  const geo = ticket.stages.geocoding?.data
-  const enrich = ticket.stages.enrichment?.data
-  const type = (llm?.type ?? enrich?.type ?? "—") as string
-  const sentiment = (llm?.sentiment ?? enrich?.sentiment ?? "—") as string
-  const summary = (llm?.summary ?? enrich?.summary ?? "") as string
-  const lat = geo?.latitude ?? enrich?.latitude
-  const lng = geo?.longitude ?? enrich?.longitude
-  const latNum = typeof lat === "number" ? lat : null
-  const lngNum = typeof lng === "number" ? lng : null
+type TableRow = {
+  ticket_id: string
+  csv_row: number | null
+  type: string
+  sentiment: string
+  summary: string
+  latitude: number | null
+  longitude: number | null
+  is_spam: boolean
+  is_complete: boolean
+}
+
+function ResultsTableRow({ row, index }: { row: TableRow; index: number }) {
   const coords =
-    latNum != null && lngNum != null ? `${latNum.toFixed(4)}, ${lngNum.toFixed(4)}` : "—"
+    row.latitude != null && row.longitude != null
+      ? `${row.latitude.toFixed(4)}, ${row.longitude.toFixed(4)}`
+      : "—"
 
   return (
     <tr
       className={cn(
         "border-b border-border/50 transition-colors",
-        ticket.isSpam && "bg-amber-500/5",
+        row.is_spam && "bg-amber-500/5",
       )}
     >
-      <td className="py-2 px-3 text-muted-foreground">{ticket.csvRow ?? index}</td>
-      <td className="py-2 px-3 font-mono text-xs">{ticket.ticketId.slice(0, 8)}…</td>
-      <td className="py-2 px-3">{type}</td>
-      <td className="py-2 px-3">{sentiment}</td>
-      <td className="py-2 px-3 max-w-[180px] truncate" title={summary}>
-        {summary || "—"}
+      <td className="py-2 px-3 text-muted-foreground">{row.csv_row ?? index}</td>
+      <td className="py-2 px-3 font-mono text-xs">{row.ticket_id.slice(0, 8)}…</td>
+      <td className="py-2 px-3">{row.type}</td>
+      <td className="py-2 px-3">{row.sentiment}</td>
+      <td className="py-2 px-3 break-words" title={row.summary}>
+        {row.summary || "—"}
       </td>
       <td className="py-2 px-3">
-        {ticket.isSpam ? (
+        {row.is_spam ? (
           <Badge variant="warning">Спам</Badge>
         ) : (
           <span className="text-muted-foreground">—</span>
@@ -182,9 +165,9 @@ function ResultsTableRow({
       </td>
       <td className="py-2 px-3 font-mono text-xs">{coords}</td>
       <td className="py-2 px-3">
-        {ticket.isSpam ? (
+        {row.is_spam ? (
           <Badge variant="warning">Спам</Badge>
-        ) : ticket.isComplete ? (
+        ) : row.is_complete ? (
           <Badge variant="success">Готово</Badge>
         ) : (
           <Badge variant="secondary">
@@ -194,35 +177,5 @@ function ResultsTableRow({
         )}
       </td>
     </tr>
-  )
-}
-
-function LogLine({ entry }: { entry: PipelineLogEntry }) {
-  const time = new Date(entry.timestamp).toLocaleTimeString("ru-RU")
-  const levelColors: Record<string, string> = {
-    info: "text-blue-400",
-    success: "text-emerald-400",
-    error: "text-red-400",
-    warning: "text-amber-400",
-    spam: "text-amber-500",
-  }
-  const levelIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-    info: Clock,
-    success: CheckCircle2,
-    error: XCircle,
-    warning: ShieldAlert,
-    spam: Ban,
-  }
-  const Icon = levelIcons[entry.level] || Clock
-
-  return (
-    <div className={cn("flex items-start gap-2 py-0.5 leading-relaxed", levelColors[entry.level])}>
-      <Icon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-      <span className="text-muted-foreground shrink-0">{time}</span>
-      {entry.ticketId && (
-        <span className="text-muted-foreground/60 shrink-0">[{entry.ticketId.slice(0, 8)}]</span>
-      )}
-      <span className="break-all">{entry.message}</span>
-    </div>
   )
 }

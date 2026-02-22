@@ -23,7 +23,7 @@ from app.services.priority import score_batch
 from app.services.routing import route_batch
 from app.services.geo_filtering import assign_ticket_to_nearest
 from app.core.sse_manager import sse_manager
-from app.core.progress_store import set_progress
+from app.core.progress_store import set_progress, add_result
 
 log = logging.getLogger("fire.pipeline")
 
@@ -122,6 +122,17 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
                     message="Пропущен (спам)",
                     data={"skipped": True, "is_spam": True},
                 )
+                add_result(
+                    batch_id_str,
+                    str(ticket.id),
+                    getattr(ticket, "csv_row_index", None),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    is_spam=True,
+                )
                 processed += 1
                 set_progress(batch_id_str, len(tickets), processed, spam_count, current, "processing")
                 continue
@@ -214,6 +225,17 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
                     "latitude": geo_data.get("latitude"),
                     "longitude": geo_data.get("longitude"),
                 },
+            )
+            add_result(
+                batch_id_str,
+                str(ticket.id),
+                getattr(ticket, "csv_row_index", None),
+                llm_data.get("type"),
+                llm_data.get("sentiment"),
+                llm_data.get("summary"),
+                geo_data.get("latitude"),
+                geo_data.get("longitude"),
+                is_spam=False,
             )
             processed += 1
             set_progress(batch_id_str, len(tickets), processed, spam_count, current, "processing")
