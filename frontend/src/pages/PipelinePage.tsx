@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react"
+import { useEffect, useRef, useMemo, useState } from "react"
 import { CheckCircle2, Loader2, Ban } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import type { UseSSEReturn } from "@/hooks/useSSE"
+import ArchitectureModal from "@/components/ui/archModal"
 
 interface PipelinePageProps {
   sse: UseSSEReturn
@@ -14,6 +15,7 @@ interface PipelinePageProps {
 export default function PipelinePage({ sse }: PipelinePageProps) {
   const { ticketStates, extractedResults, batchProgress, batchStatus } = sse
   const tableEndRef = useRef<HTMLTableRowElement>(null)
+  const [showArchitectureModal, setShowArchitectureModal] = useState(true)
 
   const progressPct =
     batchProgress && batchProgress.total > 0
@@ -80,6 +82,7 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
           </CardContent>
         </Card>
       )}
+      <ArchitectureModal show={showArchitectureModal} onClose={() => setShowArchitectureModal(false)} />
 
       <div className="flex flex-col flex-1 min-h-0">
         <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
@@ -93,7 +96,7 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
                   {batchStatus === "idle" ? "Запустите обработку на странице загрузки" : "Ожидание событий..."}
                 </div>
               ) : (
-                <table className="w-full text-sm min-w-[800px]">
+                <table className="w-full text-sm min-w-[1000px]">
                   <thead>
                     <tr className="border-b border-border">
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">№</th>
@@ -103,6 +106,9 @@ export default function PipelinePage({ sse }: PipelinePageProps) {
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground">Сводка</th>
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Спам</th>
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Координаты</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Гео-фильтр</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Навыки</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Приоритет</th>
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">Статус</th>
                     </tr>
                   </thead>
@@ -134,6 +140,9 @@ type TableRow = {
   longitude: number | null
   is_spam: boolean
   is_complete: boolean
+  geo_filter?: { candidates: number; distance_km?: number; office_name?: string; note: string }
+  skills_filter?: { before: number; after: number; relaxation: string | null }
+  priority?: { final: number; segment?: number; type?: number; sentiment?: number }
 }
 
 function ResultsTableRow({ row, index }: { row: TableRow; index: number }) {
@@ -141,6 +150,9 @@ function ResultsTableRow({ row, index }: { row: TableRow; index: number }) {
     row.latitude != null && row.longitude != null
       ? `${row.latitude.toFixed(4)}, ${row.longitude.toFixed(4)}`
       : "—"
+  const geo = row.geo_filter
+  const skills = row.skills_filter
+  const priority = row.priority
 
   return (
     <tr
@@ -153,7 +165,7 @@ function ResultsTableRow({ row, index }: { row: TableRow; index: number }) {
       <td className="py-2 px-3 font-mono text-xs">{row.ticket_id.slice(0, 8)}…</td>
       <td className="py-2 px-3">{row.type}</td>
       <td className="py-2 px-3">{row.sentiment}</td>
-      <td className="py-2 px-3 break-words" title={row.summary}>
+      <td className="py-2 px-3 break-words max-w-[200px]" title={row.summary}>
         {row.summary || "—"}
       </td>
       <td className="py-2 px-3">
@@ -164,6 +176,15 @@ function ResultsTableRow({ row, index }: { row: TableRow; index: number }) {
         )}
       </td>
       <td className="py-2 px-3 font-mono text-xs">{coords}</td>
+      <td className="py-2 px-3 text-xs" title={geo?.note}>
+        {row.is_spam ? "—" : geo ? (geo.office_name ? `${geo.office_name} (${geo.distance_km} км)` : geo.note) : "—"}
+      </td>
+      <td className="py-2 px-3 text-xs" title={skills?.relaxation ?? undefined}>
+        {row.is_spam ? "—" : skills ? `${skills.after}/${skills.before}${skills.relaxation ? " ⚠" : ""}` : "—"}
+      </td>
+      <td className="py-2 px-3 font-mono text-xs">
+        {row.is_spam ? "—" : priority != null ? priority.final.toFixed(2) : "—"}
+      </td>
       <td className="py-2 px-3">
         {row.is_spam ? (
           <Badge variant="warning">Спам</Badge>

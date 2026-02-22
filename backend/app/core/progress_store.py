@@ -28,6 +28,9 @@ def add_result(
     latitude: float | None,
     longitude: float | None,
     is_spam: bool,
+    geo_filter: dict | None = None,
+    skills_filter: dict | None = None,
+    priority: dict | None = None,
 ):
     entry = _batch_progress.get(batch_id)
     if not entry:
@@ -43,6 +46,9 @@ def add_result(
         "longitude": longitude,
         "is_spam": is_spam,
         "is_complete": True,
+        "geo_filter": geo_filter,
+        "skills_filter": skills_filter,
+        "priority": priority,
     })
     entry["results"] = results
 

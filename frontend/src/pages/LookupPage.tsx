@@ -21,12 +21,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { getTicketByRow } from "@/lib/api"
 import type { TicketLookup } from "@/types"
+import ArchitectureModal from "@/components/ui/archModal"
 
 export default function LookupPage() {
   const [rowInput, setRowInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<TicketLookup | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showArchitectureModal, setShowArchitectureModal] = useState(true)
 
   const handleSearch = async () => {
     const row = parseInt(rowInput, 10)
@@ -343,6 +345,7 @@ export default function LookupPage() {
           <p>Введите номер строки CSV для поиска обращения</p>
         </div>
       )}
+      <ArchitectureModal show={showArchitectureModal} onClose={() => setShowArchitectureModal(false)} />
     </div>
   )
 }

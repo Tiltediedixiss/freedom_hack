@@ -19,7 +19,8 @@ from app.services.personal_data_masking import anonymize_ticket, rehydrate_ticke
 from app.services.spam_prefiltering import check_spam_ticket, check_spam
 from app.services.llm_processing import analyze_ticket as llm_analyze, analyze_batch as llm_batch
 from app.services.geocoder import geocode_ticket, geocode_batch
-from app.services.priority import score_batch
+from app.services.priority import score_batch, compute_priority
+from collections import Counter
 from app.services.routing import route_batch
 from app.services.geo_filtering import assign_ticket_to_nearest
 from app.core.sse_manager import sse_manager
@@ -84,6 +85,8 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
 
     processed = 0
     spam_count = 0
+    guids = [t.guid for t in tickets if t.guid]
+    guid_counts = dict(Counter(guids))
     for idx, ticket in enumerate(tickets):
         current = idx + 1
         log.info("[PIPELINE] ticket %d/%d: %s", current, len(tickets), ticket.id)
@@ -176,6 +179,7 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
                     summary=llm_result.get("summary"),
                     sentiment=_SENTIMENT_TO_ENUM.get(sentiment_str, SentimentEnum.нейтральный),
                     sentiment_confidence=float(llm_result.get("sentiment_confidence", 0.5)),
+                    language_label=llm_result.get("language_label", "RU"),
                 )
                 db.add(ai)
             await sse_manager.send_update(
@@ -210,7 +214,26 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
             )
 
             ticket.status = TicketStatusEnum.enriched
-            await assign_ticket_to_nearest(ticket, db, str(batch_id))
+            segment_name = getattr(ticket.segment, "name", None) or "Mass"
+            ticket_type_str = llm_data.get("type") or "Консультация"
+            language_label = llm_result.get("language_label", "RU") if not isinstance(llm_result, Exception) else "RU"
+            _, geo_info, skills_info = await assign_ticket_to_nearest(
+                ticket, db, str(batch_id),
+                segment=segment_name,
+                ticket_type=ticket_type_str,
+                language_label=language_label,
+            )
+            priority_breakdown = compute_priority(
+                segment=segment_name,
+                ticket_type=ticket_type_str,
+                sentiment=llm_data.get("sentiment") or "Нейтральный",
+                age=ticket.age,
+                country=ticket.country,
+                csv_row_index=ticket.csv_row_index or idx,
+                total_rows=len(tickets),
+                guid_counts=guid_counts,
+                guid=ticket.guid or "",
+            )
             await db.flush()
             await sse_manager.send_update(
                 ticket_id=ticket.id,
@@ -236,6 +259,9 @@ async def process_batch(db: AsyncSession, batch_id: uuid.UUID) -> dict:
                 geo_data.get("latitude"),
                 geo_data.get("longitude"),
                 is_spam=False,
+                geo_filter=geo_info,
+                skills_filter=skills_info,
+                priority=priority_breakdown,
             )
             processed += 1
             set_progress(batch_id_str, len(tickets), processed, spam_count, current, "processing")

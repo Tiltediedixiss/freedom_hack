@@ -9,9 +9,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.models import Assignment, BusinessUnit, Manager, Ticket
+from app.models.models import Assignment, BusinessUnit, Manager, ManagerPositionEnum, Ticket
 
 log = logging.getLogger("pipeline.geo_filter")
+
+# Position enum -> display string for skills filter
+_POSITION_DISPLAY = {
+    ManagerPositionEnum.главный_специалист: "Главный специалист",
+    ManagerPositionEnum.ведущий_специалист: "Ведущий специалист",
+    ManagerPositionEnum.специалист: "Специалист",
+}
 
 OFFICE_COORDS: dict[str, tuple[float, float]] = {}
 
@@ -163,19 +170,107 @@ async def get_candidate_managers(
     return candidates
 
 
+def filter_candidates_by_skills(
+    candidates: list[ManagerCandidate],
+    segment: str | None,
+    ticket_type: str | None,
+    language_label: str | None,
+) -> tuple[list[ManagerCandidate], str | None]:
+    """
+    Filter candidates by skills (VIP, position, language). Returns (filtered, relaxation_note).
+    """
+    if not candidates:
+        return [], None
+    segment = segment or "Mass"
+    ticket_type = ticket_type or "Консультация"
+    language_label = language_label or "RU"
+
+    requirements = []
+    if segment in ("VIP", "Priority"):
+        requirements.append("vip")
+    if ticket_type == "Смена данных":
+        requirements.append("position")
+    if language_label in ("KZ", "ENG"):
+        requirements.append("language")
+
+    eligible = []
+    for c in candidates:
+        m = c.manager
+        skills = list(m.skills or [])
+        pos = _POSITION_DISPLAY.get(m.position, "Специалист")
+        m_dict = {"skills": skills, "position": pos}
+        ok = True
+        if "vip" in requirements and "VIP" not in skills:
+            ok = False
+        if "position" in requirements and pos != "Главный специалист":
+            ok = False
+        if "language" in requirements and language_label not in skills:
+            ok = False
+        if ok:
+            eligible.append(c)
+
+    if eligible:
+        return eligible, None
+
+    # Relaxation: try dropping one requirement
+    for drop in ["language", "position", "vip"]:
+        if drop not in requirements:
+            continue
+        reduced = [r for r in requirements if r != drop]
+        eligible = []
+        for c in candidates:
+            m = c.manager
+            skills = list(m.skills or [])
+            pos = _POSITION_DISPLAY.get(m.position, "Специалист")
+            ok = True
+            if "vip" in reduced and "VIP" not in skills:
+                ok = False
+            if "position" in reduced and pos != "Главный специалист":
+                ok = False
+            if "language" in reduced and language_label not in skills:
+                ok = False
+            if ok:
+                eligible.append(c)
+        if eligible:
+            label = {"language": "язык (KZ/ENG)", "position": "должность", "vip": "VIP"}.get(drop, drop)
+            return eligible, f"Снято: {label}"
+    return candidates, "Все требования сняты"
+
+
 async def assign_ticket_to_nearest(
     ticket: Ticket,
     db: AsyncSession,
     batch_id: Optional[str] = None,
-) -> Optional[Assignment]:
+    segment: Optional[str] = None,
+    ticket_type: Optional[str] = None,
+    language_label: Optional[str] = None,
+) -> tuple[Optional[Assignment], dict, dict]:
     """
-    Find nearest manager by office coords, create Assignment, set ticket.assigned_manager_id.
+    Find nearest manager: geo filter -> skills filter -> pick nearest.
+    Returns (assignment, geo_info, skills_info).
     """
-    candidates = await get_candidate_managers(ticket, db, max_km=500.0)
-    if not candidates:
-        return None
+    geo_info = {"candidates": 0, "distance_km": None, "office_name": None, "note": "—"}
+    skills_info = {"before": 0, "after": 0, "relaxation": None}
 
-    nearest = candidates[0]
+    candidates = await get_candidate_managers(ticket, db, max_km=500.0)
+    geo_info["candidates"] = len(candidates)
+    if not candidates:
+        geo_info["note"] = "Нет офисов в радиусе 500 км"
+        return None, geo_info, skills_info
+
+    filtered, relaxation = filter_candidates_by_skills(
+        candidates, segment, ticket_type, language_label
+    )
+    skills_info["before"] = len(candidates)
+    skills_info["after"] = len(filtered)
+    skills_info["relaxation"] = relaxation
+
+    pick_from = filtered if filtered else candidates
+    nearest = pick_from[0]
+    geo_info["distance_km"] = nearest.distance_km
+    geo_info["office_name"] = nearest.office_name or (nearest.business_unit.name if nearest.business_unit else None)
+    geo_info["note"] = f"{nearest.office_name or '?'} ({nearest.distance_km} км)"
+
     assignment = Assignment(
         ticket_id=ticket.id,
         manager_id=nearest.manager.id,
@@ -183,9 +278,9 @@ async def assign_ticket_to_nearest(
         explanation="Ближайший офис по координатам тикета",
         routing_details={
             "distance_km": nearest.distance_km,
-            "office_name": nearest.office_name or (nearest.business_unit.name if nearest.business_unit else None),
+            "office_name": geo_info["office_name"],
         },
     )
     db.add(assignment)
     ticket.assigned_manager_id = nearest.manager.id
-    return assignment
+    return assignment, geo_info, skills_info

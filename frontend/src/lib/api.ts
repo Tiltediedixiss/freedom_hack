@@ -64,6 +64,9 @@ export interface ProcessingProgressResult {
   longitude: number | null
   is_spam: boolean
   is_complete: boolean
+  geo_filter?: { candidates: number; distance_km?: number; office_name?: string; note: string }
+  skills_filter?: { before: number; after: number; relaxation: string | null }
+  priority?: { final: number; segment?: number; type?: number; sentiment?: number }
 }
 
 export const getProcessingProgress = (batchId: string) =>
