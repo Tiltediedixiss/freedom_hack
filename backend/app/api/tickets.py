@@ -18,14 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.services.routing import get_candidate_managers
 from app.models.models import (
     AIAnalysis, Assignment, BatchUpload, BusinessUnit,
     Manager, PIIMapping, Ticket,
 )
 from app.models.schemas import (
     AIAnalysisResponse, AssignmentResponse, BatchUploadResponse,
-    BusinessUnitResponse, ManagerResponse, TicketLookupResponse,
-    TicketResponse,
+    BusinessUnitResponse, ManagerCandidateResponse, ManagerResponse,
+    TicketLookupResponse, TicketResponse,
 )
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
@@ -196,6 +197,32 @@ async def lookup_by_row(
                     response.business_unit = BusinessUnitResponse.model_validate(bu)
 
     return response
+
+
+@router.get("/{ticket_id}/candidates", response_model=list[ManagerCandidateResponse])
+async def get_ticket_candidates(
+    ticket_id: uuid.UUID,
+    max_km: Optional[float] = Query(500.0, description="Max distance (km) to include office"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get managers that can serve this ticket, sorted by distance (nearest office first).
+    Uses ticket coordinates from geocoding and business_unit coordinates (geocoded on ingest).
+    """
+    result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+    ticket = result.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    candidates = await get_candidate_managers(ticket, db, max_km=max_km)
+    return [
+        ManagerCandidateResponse(
+            manager=ManagerResponse.model_validate(c.manager),
+            business_unit=BusinessUnitResponse.model_validate(c.business_unit) if c.business_unit else None,
+            distance_km=c.distance_km if c.distance_km != float("inf") else None,
+            office_name=c.office_name,
+        )
+        for c in candidates
+    ]
 
 
 @router.get("/{ticket_id}", response_model=TicketResponse)

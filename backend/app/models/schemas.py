@@ -158,6 +158,14 @@ class AssignmentResponse(BaseModel):
         from_attributes = True
 
 
+class ManagerCandidateResponse(BaseModel):
+    """Manager with distance to ticket (for routing candidates)."""
+    manager: ManagerResponse
+    business_unit: Optional[BusinessUnitResponse] = None
+    distance_km: Optional[float] = None
+    office_name: Optional[str] = None
+
+
 # ── Processing State ──
 
 class ProcessingStateResponse(BaseModel):

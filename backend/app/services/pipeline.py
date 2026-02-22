@@ -32,6 +32,7 @@ from app.services.pii_anonymizer import anonymize_ticket, rehydrate_text
 from app.services.llm_analyzer import analyze_ticket as llm_analyze_api
 from app.services.sentiment_analyzer import analyze_sentiment as sentiment_analyze_api
 from app.services.geocoder import geocode_address
+from app.services.routing import assign_ticket_to_nearest
 
 log = logging.getLogger("pipeline")
 
@@ -312,18 +313,41 @@ async def process_ticket(
     # ── Step 6: Mark ticket as enriched ──
     ticket.status = TicketStatusEnum.enriched
     await db.flush()
-    elapsed_total = int((time.time() - ticket_start) * 1000)
-    log.info("  DONE row=%s in %dms — type=%s, sentiment=%s, geo=%s",
-             row, elapsed_total, ai.detected_type, ai.sentiment,
-             ticket.address_status)
 
-    # SSE: ticket fully enriched
+    # ── Step 7: Location-based routing (assign to nearest office / manager) ──
+    assignment = await assign_ticket_to_nearest(ticket, db, batch_id)
+    if assignment:
+        result["stages"]["routing"] = {
+            "assigned_manager_id": str(assignment.manager_id),
+            "business_unit_id": str(assignment.business_unit_id) if assignment.business_unit_id else None,
+            "distance_km": assignment.routing_details.get("distance_km"),
+            "office_name": assignment.routing_details.get("office_name"),
+        }
+        await sse_manager.send_update(
+            ticket_id=ticket.id,
+            batch_id=batch_id,
+            stage="routing",
+            status="completed",
+            field="assignment",
+            data=result["stages"]["routing"],
+        )
+    else:
+        result["stages"]["routing"] = {"error": "No candidate managers"}
+        ticket.status = TicketStatusEnum.enriched  # leave as enriched if no assignment
+
+    await db.flush()
+    elapsed_total = int((time.time() - ticket_start) * 1000)
+    log.info("  DONE row=%s in %dms — type=%s, sentiment=%s, geo=%s, routed=%s",
+             row, elapsed_total, ai.detected_type, ai.sentiment,
+             ticket.address_status, bool(assignment))
+
+    # SSE: ticket fully enriched (and routed if assignment succeeded)
     await sse_manager.send_update(
         ticket_id=ticket.id,
         batch_id=batch_id,
         stage="enrichment",
         status="completed",
-        message="All AI analysis complete",
+        message="All AI analysis complete" + ("; assigned to manager" if assignment else ""),
         data=result["stages"],
     )
 

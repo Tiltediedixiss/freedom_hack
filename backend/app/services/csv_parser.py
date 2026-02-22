@@ -26,6 +26,7 @@ from app.models.models import (
     SegmentEnum, ManagerPositionEnum, POSITION_MAP, SEGMENT_MAP,
     POSITION_SKILL_FACTOR,
 )
+from app.services.geocoder import geocode_office_address
 
 
 def _detect_encoding(raw_bytes: bytes) -> str:
@@ -194,7 +195,7 @@ async def ingest_business_units_csv(
     text = file_bytes.decode(encoding, errors="replace")
     df = pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False)
 
-    # Normalize column names
+    # Normalize column names (Офис, Адрес, optional Страна/country)
     col_map = {}
     for col in df.columns:
         c = col.strip().lower()
@@ -202,6 +203,8 @@ async def ingest_business_units_csv(
             col_map[col] = "name"
         elif "адрес" in c or "address" in c:
             col_map[col] = "address"
+        elif "страна" in c or "country" in c:
+            col_map[col] = "country"
     df = df.rename(columns=col_map)
 
     imported = 0
@@ -217,12 +220,27 @@ async def ingest_business_units_csv(
         existing = result.scalar_one_or_none()
 
         address = _clean_str(row.get("address"))
+        country = _clean_str(row.get("country"))  # optional: Страна / country
 
         if existing:
             existing.address = address or existing.address
+            bu = existing
         else:
             bu = BusinessUnit(name=name, address=address)
             db.add(bu)
+            await db.flush()
+
+        # Geocode office address so we have lat/lon for distance-based routing
+        try:
+            geo = await geocode_office_address(
+                office_name=name, address=address, country=country, db=db
+            )
+            if geo.latitude is not None and geo.longitude is not None:
+                bu.latitude = geo.latitude
+                bu.longitude = geo.longitude
+                bu.geo_point = f"SRID=4326;POINT({geo.longitude} {geo.latitude})"
+        except Exception:
+            pass  # leave lat/lon null if geocoding fails
 
         imported += 1
 

@@ -150,6 +150,50 @@ async def _geocode_nominatim(address: str) -> tuple[float, float] | None:
     return None
 
 
+async def geocode_office_address(
+    office_name: str,
+    address: str | None,
+    country: str | None = None,
+    db: AsyncSession | None = None,
+) -> GeocodingResult:
+    """
+    Geocode a business unit (office) address.
+    Country is optional (e.g. from business_units CSV column "Страна" / "country").
+    If no country is given, the query is built from office_name + address only;
+    2GIS/Nominatim will resolve from context (works for any country).
+    """
+    parts = []
+    if country and country.strip():
+        parts.append(country.strip())
+    parts.append(office_name)
+    if address and address.strip():
+        parts.append(address.strip())
+    query = ", ".join(parts)
+    if db:
+        cached = await _check_cache(query, db)
+        if cached:
+            return cached
+    coords = await _geocode_2gis(query)
+    provider = "2gis"
+    if not coords:
+        coords = await _geocode_nominatim(query)
+        provider = "nominatim"
+    if coords:
+        if db:
+            await _save_cache(query, coords, provider, db)
+        return GeocodingResult(
+            latitude=coords[0],
+            longitude=coords[1],
+            provider=f"{provider}_office",
+            address_status="resolved",
+            explanation=f"Офис {office_name} геокодирован",
+        )
+    return GeocodingResult(
+        address_status="unknown",
+        explanation=f"Не удалось геокодировать офис {office_name}",
+    )
+
+
 async def geocode_address(
     country: str | None,
     region: str | None,
